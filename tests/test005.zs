@@ -1,5 +1,6 @@
+//return function
 func f()
-  return func();return 5+5+5;end
+  return !5+5+5
 end
 
 func g()

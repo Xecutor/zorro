@@ -1,3 +1,4 @@
+//ref to array element
 x=[1,2,3]
 y=&x[1]
 y=10

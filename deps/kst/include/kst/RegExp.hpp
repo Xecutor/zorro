@@ -96,17 +96,17 @@ static const int OP_STRICT       =0x0040;
 */
 /*@{*/
 //! Digits
-static const int TYPE_DIGITCHAR  =0x01;
+static const unsigned char TYPE_DIGITCHAR  =0x01;
 //! space, newlines tab etc
-static const int TYPE_SPACECHAR  =0x02;
+static const unsigned char TYPE_SPACECHAR  =0x02;
 //! alphanumeric and _
-static const int TYPE_WORDCHAR   =0x03;
+static const unsigned char TYPE_WORDCHAR   =0x03;
 //! lowcase symbol
-static const int TYPE_LOWCASE    =0x04;
+static const unsigned char TYPE_LOWCASE    =0x04;
 //! upcase symbol
-static const int TYPE_UPCASE     =0x05;
+static const unsigned char TYPE_UPCASE     =0x05;
 //! letter
-static const int TYPE_ALPHACHAR  =0x06;
+static const unsigned char TYPE_ALPHACHAR  =0x06;
 /*@}*/
 
 
@@ -141,19 +141,19 @@ struct NamedMatch{
 };
 
 struct MatchInfo{
-  SMatch* br;
-  int brSize;
-  int brCount;
-  NamedMatch* nm;
-  int nmSize;
-  int nmCount;
-  MatchInfo():br(0),brSize(0),brCount(0),nm(0),nmSize(0),nmCount(0){}
-  MatchInfo(SMatch* argBr,int argBrSize,NamedMatch* argNm=0,int argNmSize=0):br(argBr),brSize(argBrSize),brCount(0),
-      nm(argNm),nmSize(argNmSize),nmCount(0){}
+  SMatch* br = nullptr;
+  size_t brSize = 0;
+  size_t brCount = 0;
+  NamedMatch* nm = nullptr;
+  size_t nmSize = 0;
+  size_t nmCount = 0;
+  MatchInfo()=default;
+  MatchInfo(SMatch* argBr,size_t argBrSize,NamedMatch* argNm=0,size_t argNmSize=0):
+    br(argBr),brSize(argBrSize),brCount(0), nm(argNm),nmSize(argNmSize),nmCount(0){}
   template <size_t N>
-  MatchInfo(SMatch (&argBr)[N]):br(argBr),brSize(N),brCount(0),nm(0),nmSize(0),nmCount(0){}
+  MatchInfo(SMatch (&argBr)[N]):br(argBr),brSize(N){}
   template <size_t N,size_t M>
-  MatchInfo(SMatch (&argBr)[N],NamedMatch (&argNm)[M]):br(argBr),brSize(N),brCount(0),nm(argNm),nmSize(M),nmCount(0){}
+  MatchInfo(SMatch (&argBr)[N],NamedMatch (&argNm)[M]):br(argBr),brSize(N),nm(argNm),nmSize(M){}
 
   template <typename INPUT_ITER>
   SMatch* hasNamedMatch(INPUT_ITER argName)
@@ -280,44 +280,51 @@ and than Match string or Search for matching fragment.
 class RegExp{
 private:
   // code
-  PREOpCode code;
+  PREOpCode code = nullptr;
 
-  UniSet *firstptr;
-  UniSet *lastptr;
+  UniSet *firstptr = nullptr;
+  UniSet *lastptr = nullptr;
 
-  PREOpCode firstStr;
+  PREOpCode firstStr = nullptr;
 
-  int haveFirst;
-  int haveLast;
-  int haveLookAhead;
+  bool haveFirst = false;
+  bool haveLast = false;
+  bool haveLookAhead = false;
 
-  int minLength;
+  size_t minLength = 0;
 
   // error info
-  int errorCode;
-  int errorPos;
+  int errorCode = 0;
+  ptrdiff_t errorPos = 0;
 
   // options
-  int ignoreCase;
+  bool ignoreCase = false;
 
-  int bracketsCount;
-  int maxBackRef;
-  int namedBracketsCount;
-  const rechar_t** names;
-
-  template <typename INPUT_ITER>
-  inline int calcLength(INPUT_ITER src,INPUT_ITER end);
-  template <typename INPUT_ITER>
-  inline int innerCompile(INPUT_ITER start,INPUT_ITER end,int options);
+  size_t bracketsCount = 0;
+  size_t maxBackRef = 0;
+  size_t namedBracketsCount = 0;
+  const rechar_t** names = nullptr;
 
   template <typename INPUT_ITER>
-  inline int innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER end,MatchInfo* mi);
+  inline size_t calcLength(INPUT_ITER src,INPUT_ITER end);
+  template <typename INPUT_ITER>
+  inline bool innerCompile(INPUT_ITER start,INPUT_ITER end,int options);
 
-  int SetError(int argCode,ptrdiff_t argPos)
+  template <typename INPUT_ITER>
+  inline bool innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER end,MatchInfo* mi);
+
+  size_t SetErrorSz(int argCode,ptrdiff_t argPos)
   {
     errorCode=argCode;
-    errorPos=(int)argPos;
+    errorPos=argPos;
     return 0;
+  }
+
+  bool SetError(int argCode,ptrdiff_t argPos)
+  {
+    errorCode=argCode;
+    errorPos=argPos;
+    return false;
   }
 
   template <typename INPUT_ITER>
@@ -334,7 +341,7 @@ private:
 
   template <typename INPUT_ITER>
   inline void init(INPUT_ITER,int options);
-  RegExp(const RegExp& re){};
+  RegExp(const RegExp& re)=delete;
 
   static inline int CalcPatternLength(PREOpCode from,PREOpCode to);
 
@@ -375,14 +382,14 @@ public:
       \sa options
   */
   template <typename INPUT_ITER>
-  inline int Compile(INPUT_ITER src,int options=OP_PERLSTYLE|OP_OPTIMIZE);
+  inline bool Compile(INPUT_ITER src,int options=OP_PERLSTYLE|OP_OPTIMIZE);
   template <typename INPUT_ITER>
-  inline int CompileEx(INPUT_ITER src,INPUT_ITER end,int options=OP_PERLSTYLE|OP_OPTIMIZE,rechar_t delim='/');
+  inline bool CompileEx(INPUT_ITER src,INPUT_ITER end,int options=OP_PERLSTYLE|OP_OPTIMIZE,rechar_t delim='/');
   /*! Try to optimize regular expression
       Significally speedup Search mode in some cases.
       \return 1 on success, 0 if optimization failed.
   */
-  inline int Optimize();
+  inline bool Optimize();
 
   /*! Try to match string with regular expression
       \param textstart - start of string to match
@@ -395,33 +402,33 @@ public:
       \sa SMatch
   */
   template <typename INPUT_ITER>
-  inline int Match(INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi);
+  inline bool Match(INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi);
   /*! Same as Match(const char* textstart,const char* textend,...), but for ASCIIZ string.
       textend calculated automatically.
   */
   template <typename INPUT_ITER>
-  inline int Match(INPUT_ITER textstart,MatchInfo& match);
+  inline bool Match(INPUT_ITER textstart,MatchInfo& match);
   /*! Advanced version of match. Can be used for multiple matches
       on one string (to imitate /g modifier of perl regexp
   */
   template <typename INPUT_ITER>
-  inline int MatchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi);
+  inline bool MatchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi);
   /*! Try to find substring that will match regexp.
       Parameters and return value are the same as for Match.
       It is highly recommended to call Optimize before Search.
   */
   template <typename INPUT_ITER>
-  inline int Search(INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi);
+  inline bool Search(INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi);
   /*! Same as Search with specified textend, but for ASCIIZ strings only.
       textend calculated automatically.
   */
   template <typename INPUT_ITER>
-  inline int Search(INPUT_ITER textstart,MatchInfo& mi);
+  inline bool Search(INPUT_ITER textstart,MatchInfo& mi);
   /*! Advanced version of search. Can be used for multiple searches
       on one string (to imitate /g modifier of perl regexp
   */
   template <typename INPUT_ITER>
-  int SearchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi);
+  bool SearchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi);
 
   /*! Get last error
       \return code of the last error
@@ -434,17 +441,17 @@ public:
       \return position of the last error in the regexp source.
       \sa LastError
   */
-  int getErrorPosition() const {return errorPos;}
+  ptrdiff_t getErrorPosition() const {return errorPos;}
   /*! Get number of brackets in expression
       \return number of brackets, excluding brackets of type (:expr)
       and named brackets.
   */
-  int getBracketsCount() const {return bracketsCount;}
+  size_t getBracketsCount() const {return bracketsCount;}
   /*! Get number of named brackets in expression
       \return number of named brackets.
   */
-  int getNamedBracketsCount() const {return namedBracketsCount;}
-  const rechar_t* getName(int idx)const
+  size_t getNamedBracketsCount() const {return namedBracketsCount;}
+  const rechar_t* getName(size_t idx)const
   {
     if(idx>=namedBracketsCount)return 0;
     return names[idx];

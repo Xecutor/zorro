@@ -1,5 +1,5 @@
-class Base(a)
-  z=a
+class Base(z)
+  z
   on create
     print("hello,z=",z)
   end

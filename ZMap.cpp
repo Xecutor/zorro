@@ -2,49 +2,55 @@
 #include "ZString.hpp"
 #include "ZorroVM.hpp"
 
-namespace zorro{
+namespace zorro {
 
-uint32_t ZMap::hashFunc(const Value& key)const
+uint32_t ZMap::hashFunc(const Value& key) const
 {
-  switch(key.vt)
-  {
-    case vtNil:return 0xffffffff;
-    case vtBool:return key.bValue?1:0;
-    case vtWeakRef:
-    case vtRef:return hashFunc(key.valueRef->value);
-    case vtDouble:
-    case vtInt:return (key.iValue&0xffffffff)^(key.iValue>>32);
-    case vtString:
-      return key.str->getHashCode();
-    case vtDelegate:
+    switch(key.vt)
     {
-      intptr_t v=(intptr_t)key.dlg->method;
-      v^=hashFunc(key.dlg->obj);
-      if(sizeof(intptr_t)==8)
-        return ((v>>4) ^ (v>>36))&0xffffffff;
-      else
-        return (v>>4)&0xffffffff;
+        case vtNil:
+            return 0xffffffff;
+        case vtBool:
+            return key.bValue ? 1u : 0u;
+        case vtWeakRef:
+        case vtRef:
+            return hashFunc(key.valueRef->value);
+        case vtDouble:
+        case vtInt:
+            return static_cast<uint32_t>((key.iValue & 0xffffffff) ^ (key.iValue >> 32));
+        case vtString:
+            return key.str->getHashCode();
+        case vtDelegate:
+        {
+            intptr_t v = (intptr_t) key.dlg->method;
+            v ^= hashFunc(key.dlg->obj);
+#if INTPTR_MAX > 0xffffffffu
+            return ((v >> 4) ^ (v >> 36)) & 0xffffffff;
+#else
+            return (v>>4)&0xffffffff;
+#endif
+        }
+        case vtSegment:
+        {
+            Segment& s = *key.seg;
+            if(s.cont.vt == vtString)
+            {
+                const char* sdata = s.cont.str->getDataPtr();
+                int cs = s.cont.str->getCharSize();
+                return ZString::calcHash(sdata + s.segStart * cs, sdata + s.segEnd * cs);
+            }
+        }
+            /* no break */
+        default:
+        {
+            intptr_t v = (intptr_t) key.arr;
+#if INTPTR_MAX > 0xffffffffu
+            return ((v >> 4) ^ (v >> 36)) & 0xffffffff;
+#else
+            return (v>>4)&0xffffffff;
+#endif
+        }
     }
-    case vtSegment:
-    {
-      Segment& s=*key.seg;
-      if(s.cont.vt==vtString)
-      {
-        const char* sdata=s.cont.str->getDataPtr();
-        int cs=s.cont.str->getCharSize();
-        return ZString::calcHash(sdata+s.segStart*cs,sdata+s.segEnd*cs);
-      }
-    }
-    /* no break */
-    default:
-    {
-      intptr_t v=(intptr_t)key.arr;
-      if(sizeof(intptr_t)==8)
-        return ((v>>4) ^ (v>>36))&0xffffffff;
-      else
-        return (v>>4)&0xffffffff;
-    }
-  }
 }
 
 /*

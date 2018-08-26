@@ -1,3 +1,4 @@
+//chained if/elsif inside while
 func f(x)
   y=0
   while y<2

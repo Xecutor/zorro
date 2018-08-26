@@ -22,7 +22,7 @@ static void stringSubstr(ZorroVM* vm,Value* self)
   {
     throw std::runtime_error("Expected integer as first argument for String.substr");
   }
-  uint32_t start=startVal.iValue;
+  uint32_t start=static_cast<uint32_t>(startVal.iValue);
   uint32_t len=self->str->getLength();
   if(vm->getArgsCount()==2)
   {
@@ -31,7 +31,7 @@ static void stringSubstr(ZorroVM* vm,Value* self)
     {
       throw std::runtime_error("Expected integer as second argument for String.substr");
     }
-    len=lenVal.iValue;
+    len=static_cast<uint32_t>(lenVal.iValue);
   }
   vm->setResult(StringValue(self->str->substr(vm,start,len)));
 }
@@ -47,7 +47,7 @@ static void stringErase(ZorroVM* vm,Value* self)
   {
     throw std::runtime_error("Expected integer as first argument for String.erase");
   }
-  uint32_t start=startVal.iValue;
+  uint32_t start=static_cast<uint32_t>(startVal.iValue);
   uint32_t len=self->str->getLength();
   if(vm->getArgsCount()==2)
   {
@@ -56,7 +56,7 @@ static void stringErase(ZorroVM* vm,Value* self)
     {
       throw std::runtime_error("Expected integer as second argument for String.erase");
     }
-    len=lenVal.iValue;
+    len=static_cast<uint32_t>(lenVal.iValue);
   }
   vm->setResult(StringValue(self->str->erase(vm,start,len)));
 }
@@ -72,7 +72,7 @@ static void stringInsert(ZorroVM* vm,Value* self)
   {
     throw std::runtime_error("Expected integer as first argument for String.insert");
   }
-  uint32_t start=startVal.iValue;
+  uint32_t start=static_cast<uint32_t>(startVal.iValue);
   Value strVal=vm->getLocalValue(1);
   if(!(strVal.vt==vtString || (strVal.vt==vtSegment && strVal.seg->cont.vt==vtString)))
   {
@@ -81,7 +81,8 @@ static void stringInsert(ZorroVM* vm,Value* self)
   ZStringRef str;
   if(strVal.vt==vtSegment)
   {
-    str=ZStringRef(vm,strVal.seg->cont.str->substr(vm,strVal.seg->segStart,strVal.seg->segEnd-strVal.seg->segStart));
+    str=ZStringRef(vm,strVal.seg->cont.str->substr(vm,static_cast<uint32_t>(strVal.seg->segStart),
+                                                   static_cast<uint32_t>(strVal.seg->segEnd-strVal.seg->segStart)));
   }else
   {
     str=ZStringRef(vm,strVal.str);
@@ -91,7 +92,7 @@ static void stringInsert(ZorroVM* vm,Value* self)
 
 static void stringFind(ZorroVM* vm,Value* self)
 {
-  int from=0;
+  uint32_t from=0;
   if(vm->getArgsCount()==0 || vm->getArgsCount()>2)
   {
     throw std::runtime_error("Unexpected number of arguments for String.find");
@@ -108,7 +109,7 @@ static void stringFind(ZorroVM* vm,Value* self)
     {
       throw std::runtime_error("Expected int as second argument for String.find");
     }
-    from=idx.iValue;
+    from=static_cast<uint32_t>(idx.iValue);
   }
   vm->setResult(IntValue(self->str->find(*substr.str,from)));
 }
@@ -118,17 +119,17 @@ static void stringToUpper(ZorroVM* vm,Value* self)
   ZString& rv=*self->str->copy(vm);
   if(rv.getCharSize()==1)
   {
-    int len=rv.getLength();
+    size_t len=rv.getLength();
     char* ptr=(char*)rv.getDataPtr();
-    for(int i=0;i<len;++i)
+    for(size_t i=0;i<len;++i)
     {
-      ptr[i]=toupper(ptr[i]);
+      ptr[i]=static_cast<char>(toupper(static_cast<unsigned char>(ptr[i])));
     }
   }else
   {
-    int len=rv.getLength();
+    size_t len=rv.getLength();
     uint16_t* ptr=(uint16_t*)rv.getDataPtr();
-    for(int i=0;i<len;++i)
+    for(size_t i=0;i<len;++i)
     {
       ptr[i]=towupper(ptr[i]);
     }
@@ -145,7 +146,7 @@ static void classGetSubclasses(ZorroVM* vm,Value* self)
   rv.flags=0;
   ZArray* za=rv.arr=vm->allocZArray();
   za->resize(self->classInfo->children.size());
-  int idx=0;
+  size_t idx=0;
   for(ClassInfo::ChildrenVector::iterator it=cv.begin(),end=cv.end();it!=end;++it,++idx)
   {
     Value& v=za->getItemRef(idx);
@@ -164,14 +165,13 @@ static void classGetDataMembers(ZorroVM* vm,Value* self)
   rv.flags=0;
   ZArray* za=rv.arr=vm->allocZArray();
   za->resize(ci->membersCount);
-  SymMap::Iterator it(ci->symMap);
-  int idx=0;
-  for(std::vector<ClassMember*>::iterator it=ci->members.begin(),end=ci->members.end();it!=end;++it)
+  size_t idx=0;
+  for(auto& cm:ci->members)
   {
     Value& val=za->getItemRef(idx++);
     val.vt=vtString;
     val.flags=0;
-    val.str=(*it)->name.val.get();
+    val.str=cm->name.val.get();
     val.str->ref();
   }
   vm->setResult(rv);
@@ -209,11 +209,11 @@ static void BoolCtor(ZorroVM* vm,Value*)
     throw std::runtime_error("Expected exactly 1 argument for Bool constructor");
   }
   Value* arg=&vm->getLocalValue(0);
-  int callLevel=vm->ctx.callStack.size();
+  size_t callLevel=vm->ctx.callStack.size();
   bool rv=vm->boolOps[arg->vt](vm,arg);
   if(callLevel!=vm->ctx.callStack.size())
   {
-    int savelb=vm->ctx.callStack.stackTop[-1].localBase;
+    size_t savelb=vm->ctx.callStack.stackTop[-1].localBase;
     vm->ctx.callStack.stackTop[-1].localBase=vm->ctx.callStack.stackTop[-2].localBase;
     OpBase* saveRet=vm->ctx.callStack.stackTop->retOp;
     vm->ctx.callStack.stackTop->retOp=0;
@@ -242,7 +242,7 @@ static void IntCtor(ZorroVM* vm,Value*)
     val=arg->iValue;
   }else if(arg->vt==vtDouble)
   {
-    val=arg->dValue;
+    val=static_cast<int64_t>(arg->dValue);
   }else if(arg->vt==vtString)
   {
     val=ZString::parseInt(arg->str->c_str(vm));
@@ -260,7 +260,7 @@ static void DoubleCtor(ZorroVM* vm,Value*)
   double val=0;
   if(arg->vt==vtInt)
   {
-    val=arg->iValue;
+    val=static_cast<double>(arg->iValue);
   }else if(arg->vt==vtDouble)
   {
     val=arg->dValue;
@@ -269,7 +269,8 @@ static void DoubleCtor(ZorroVM* vm,Value*)
     val=ZString::parseDouble(arg->str->c_str(vm));
   }else if(arg->vt==vtSegment && arg->seg->cont.vt==vtString)
   {
-    val=ZString::parseDouble(arg->seg->cont.str->c_substr(vm,arg->seg->segStart,arg->seg->segEnd-arg->seg->segStart));
+    val=ZString::parseDouble(arg->seg->cont.str->c_substr(vm,static_cast<uint32_t>(arg->seg->segStart),
+                                                          static_cast<uint32_t>(arg->seg->segEnd-arg->seg->segStart)));
   }else
   {
     throw std::runtime_error("Unexpected type of argument for Double constructor");
@@ -290,8 +291,8 @@ static Symbol parseSymbol(ZorroVM* vm,const char* name,NameList& ns)
       {
         ZTHROW(SyntaxErrorException,FileLocation(),"Invalid symbol %{}",name);
       }
-      ZStringRef str=vm->mkZString(ptr,col-ptr);
-      ns.push_back(str);
+      ZStringRef str=vm->mkZString(ptr,static_cast<size_t>(col-ptr));
+      ns.values.push_back(str);
       ptr=col+2;
     }else
     {
@@ -299,7 +300,7 @@ static Symbol parseSymbol(ZorroVM* vm,const char* name,NameList& ns)
     }
   }
   nm.val=vm->mkZString(ptr);
-  return Symbol(nm,ns.empty()?0:&ns);
+  return Symbol(nm,ns.values.empty()?0:&ns);
 }
 
 static Value mkObject(ZorroVM* vm,const char* name)
@@ -321,7 +322,7 @@ static Value mkObject(ZorroVM* vm,const char* name)
   obj.classInfo=ci;
   ci->ref();
   obj.members=vm->allocVArray(ci->membersCount);
-  for(int i=0;i<ci->membersCount;++i)
+  for(size_t i=0;i<ci->membersCount;++i)
   {
     obj.members[i]=NilValue;
   }
@@ -332,10 +333,11 @@ void setMemberValue(ZorroVM* vm,Value obj,const char* field,const std::string& v
 {
   Value* members=obj.obj->members;
   ClassInfo* ci=obj.obj->classInfo;
-  vm->assign(members[(*ci->symMap.getPtr(field))->index],StringValue(vm->mkZString(val.c_str(),val.length())));
+  ZStringRef str = vm->mkZString(val.c_str(), val.length());
+  vm->assign(members[(*ci->symMap.getPtr(field))->index], StringValue(str));
 }
 
-void setMemberValue(ZorroVM* vm,Value obj,const char* field,int val)
+void setMemberValue(ZorroVM* vm,Value obj,const char* field,int64_t val)
 {
   Value* members=obj.obj->members;
   ClassInfo* ci=obj.obj->classInfo;
@@ -392,7 +394,7 @@ static void arrayBack(ZorroVM* vm,Value* arr)
   {
     throw std::runtime_error("Array index out of bounds in Array.back");
   }
-  vm->setResult(arr->arr->getItem(arr->arr->getCount()-1-off));
+  vm->setResult(arr->arr->getItem(static_cast<size_t>(arr->arr->getCount()-1-off)));
 }
 
 static void arrayPopBack(ZorroVM* vm,Value* arr)
@@ -433,7 +435,7 @@ static void arrayErase(ZorroVM* vm,Value* arr)
       count=arr->arr->getCount()-start;
     }
   }
-  arr->arr->erase(start,count);
+  arr->arr->erase(static_cast<size_t>(start),static_cast<size_t>(count));
 }
 
 static void arrayInsert(ZorroVM* vm,Value* arr)
@@ -478,7 +480,7 @@ static void arrayInsert(ZorroVM* vm,Value* arr)
   }
   if(insArr.vt==vtArray)
   {
-    arr->arr->insert(index,*insArr.arr,start,count);
+    arr->arr->insert(static_cast<size_t>(index),*insArr.arr,static_cast<size_t>(start),static_cast<size_t>(count));
   }else if(insArr.vt==vtSegment)
   {
     if(insArr.seg->segStart+start+count>insArr.seg->segEnd)
@@ -486,12 +488,12 @@ static void arrayInsert(ZorroVM* vm,Value* arr)
       count=insArr.seg->segEnd-(insArr.seg->segStart+start);
     }
     start+=insArr.seg->segStart;
-    arr->arr->insert(index,*insArr.seg->cont.arr,start,count);
+    arr->arr->insert(static_cast<size_t>(index),*insArr.seg->cont.arr,static_cast<size_t>(start),static_cast<size_t>(count));
   }else//slice
   {
     Value dst=NilValue;
     vm->copyOps[insArr.vt](vm,&insArr,&dst);
-    arr->arr->insert(index,*dst.arr,start,count);
+    arr->arr->insert(static_cast<size_t>(index),*dst.arr,static_cast<size_t>(start),static_cast<size_t>(count));
     ZUNREF(vm,&dst);
   }
 }

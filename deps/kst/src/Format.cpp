@@ -1,4 +1,5 @@
 #include <kst/Format.hpp>
+#include <type_traits>
 
 namespace kst{
 
@@ -7,16 +8,17 @@ inline void fmtintsign(inttype val,FormatBuffer* buf,int w,bool lz)
 {
   char tmp[64];
   bool negative=val<0;
-  val=negative?-val:val;
+  typename std::make_unsigned<inttype>::type uval=negative?-val:val;
+
   char* ptr=tmp+64;
-  if(!val)
+  if(!uval)
   {
     *--ptr='0';
   }else
-  while (val)
+  while (uval)
   {
-    *--ptr=(val%10)+'0';
-    val/=10;
+    *--ptr=(uval%10)+'0';
+    uval/=10;
   }
   size_t l=tmp+64-ptr;
   if(w && !lz)
@@ -137,7 +139,7 @@ FormatBuffer& format(const ArgsList& a)
               {
                 w=w*10+(*str++-'0');
               }
-              if(*str==',')
+              if(*str==',' || *str=='.')
               {
                 str++;
                 while(*str>='0' && *str<='9')

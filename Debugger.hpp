@@ -4,32 +4,41 @@
 #include "ZorroVM.hpp"
 #include "SynTree.hpp"
 
-namespace zorro{
+namespace zorro {
 
 
-class Debugger{
+class Debugger {
 public:
-  Debugger(ZorroVM* argVm,StmtList* argTree):vm(argVm),tree(argTree){}
-  void start();
-  void stepOver();
-  void stepInto();
-  std::string getCurrentLine();
+    Debugger(ZorroVM* argVm, StmtList* argTree) : vm(argVm), tree(argTree)
+    {
+    }
+
+    void start();
+
+    void stepOver();
+
+    void stepInto();
+
+    std::string getCurrentLine();
+
 protected:
-  ZorroVM* vm;
-  StmtList* tree;
+    ZorroVM* vm;
+    StmtList* tree;
 
-  struct StepCondition{
-    FileLocation start,end;
-    int depthLevel;
-    bool stepInto;
-    bool operator()(ZorroVM* vm);
-  };
+    struct StepCondition {
+        FileLocation start, end;
+        size_t depthLevel;
+        bool stepInto;
+
+        bool operator()(ZorroVM* vm);
+    };
 
 
+    Statement* findStmt(FileLocation pos);
 
-  Statement* findStmt(FileLocation pos);
-  Statement* findStmtRec(StmtList* subtree,FileLocation pos);
-  StepCondition makeStepCondition(FileLocation pos,bool stepInto);
+    Statement* findStmtRec(StmtList* subtree, FileLocation pos);
+
+    StepCondition makeStepCondition(FileLocation pos, bool stepInto);
 };
 
 }

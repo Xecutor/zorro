@@ -89,7 +89,7 @@ struct ArgsList{
       void Init(const char* v){vt=vtCharPtr;sptr=v;}
       void Init(char* v){vt=vtCharPtr;sptr=v;}
       void Init(void* v){vt=vtVoidPtr;val=v;}
-      void Init(const std::string& s){vt=vtString;sptr=s.c_str();}
+      void Init(const std::string& str){vt=vtString;sptr=str.c_str();}
 
       void Fmt(FormatBuffer& buf,int w,int p)const
       {
@@ -177,7 +177,7 @@ public:
     if(w<=0)return;
     if(length+w+1>size)
     {
-      Expand(w);
+      Expand(static_cast<size_t>(w));
     }
     length+=w;
     while(w--)
@@ -188,15 +188,15 @@ public:
     *end=0;
   }
 
-  inline void Append(const FormatBuffer& buf)
+  inline void Append(const FormatBuffer& abuf)
   {
-    int len=buf.Length();
+    size_t len=abuf.Length();
     if(length+len+1>size)
     {
       Expand(len);
     }
 
-    memcpy(end,buf.ptr,len);
+    memcpy(end,abuf.ptr,len);
     end+=len;
     length+=len;
     *end=0;
@@ -262,7 +262,7 @@ public:
       return al;
   }
 protected:
-  inline void Expand(int len)
+  inline void Expand(size_t len)
   {
     size=(length+len+1)*2;
     char* newptr=new char[size];

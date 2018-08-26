@@ -35,12 +35,12 @@ MatchInfoN<B,N>::MatchInfoN(const RegExp& re):MatchInfo(mArr,nmArr)
   }
 }
 
-#define RE_ISDIGIT(c) iswdigit(c)
-#define RE_ISSPACE(c) iswspace(c)
-#define RE_ISWORD(c)  (iswalnum(c) || (c)=='_')
-#define RE_ISLOWER(c) iswlower(c)
-#define RE_ISUPPER(c) iswupper(c)
-#define RE_ISALPHA(c) iswalpha(c)
+#define RE_ISDIGIT(c) (iswdigit(c) != 0)
+#define RE_ISSPACE(c) (iswspace(c) != 0)
+#define RE_ISWORD(c)  (iswalnum(c) != 0 || (c)=='_')
+#define RE_ISLOWER(c) (iswlower(c) != 0)
+#define RE_ISUPPER(c) (iswupper(c) != 0)
+#define RE_ISALPHA(c) (iswalpha(c) != 0)
 #define RE_TOUPPER(c) towupper(c)
 #define RE_TOLOWER(c) towlower(c)
 
@@ -155,17 +155,17 @@ public:
   {
     if((src.negative && !negative) || (!src.negative && negative))
     {
-      for(int i=0;i<256;i++)
+      for(size_t i=0;i<256;i++)
       {
         if(src.high[i])
         {
           if(!high[i])
           {
             high[i]=new unsigned char[32];
-            for(int j=0;j<32;j++)high[i][j]=~src.high[i][j];
+            for(size_t j=0;j<32;j++)high[i][j]=static_cast<unsigned char>(~src.high[i][j]);
           }else
           {
-            for(int j=0;j<32;j++)high[i][j]|=~src.high[i][j];
+            for(size_t j=0;j<32;j++)high[i][j]|=static_cast<unsigned char>(~src.high[i][j]);
           }
         }else
         {
@@ -263,22 +263,21 @@ public:
   }
   bool GetBit(rechar_t chr)const
   {
-    bool found=false;
-    for(int i=0;i<typesCount;++i)
+    for(size_t i=0;i<typesCount;++i)
     {
       if(isType(chr,types[i]))
       {
         return !negative;
       }
     }
-    for(int i=0;i<notTypesCount;++i)
+    for(size_t i=0;i<notTypesCount;++i)
     {
       if(!isType(chr,notTypes[i]))
       {
         return !negative;
       }
     }
-    unsigned char h=(chr&0xff00)>>8;
+    unsigned char h=static_cast<unsigned char>((chr&0xff00)>>8);
     if(!high[h])return negative;
     if(high[h][(chr&0xff)>>3]&(1<<(chr&7)))
     {
@@ -290,7 +289,7 @@ public:
   }
   void SetBit(rechar_t  chr)
   {
-    unsigned char h=(chr&0xff00)>>8;
+    unsigned char h=static_cast<unsigned char>((chr&0xff00)>>8);
     if(!high[h])
     {
       high[h]=new unsigned char[32];
@@ -300,7 +299,7 @@ public:
   }
   void ClearBit(rechar_t  chr)
   {
-    unsigned char h=(chr&0xff00)>>8;
+    unsigned char h=static_cast<unsigned char>((chr&0xff00)>>8);
     if(!high[h])
     {
       high[h]=new unsigned char[32];
@@ -446,8 +445,8 @@ struct REOpCode{
 
   struct String{
     rechar_t* str;
-    int bmskip[128];
-    int length;
+    size_t bmskip[128];
+    size_t length;
   };
 
   union{
@@ -484,14 +483,6 @@ inline REOpCode::~REOpCode()
 template <typename INPUT_ITER>
 inline void RegExp::init(INPUT_ITER expr,int options)
 {
-  //memset(this,0,sizeof(*this));
-  code=NULL;
-  names=0;
-  namedBracketsCount=0;
-  firstStr=0;
-  haveFirst=false;
-  haveLast=false;
-  minLength=0;
   firstptr=new UniSet();
   lastptr=new UniSet();
 
@@ -500,11 +491,6 @@ inline void RegExp::init(INPUT_ITER expr,int options)
 
 inline RegExp::RegExp()
 {
-  //memset(this,0,sizeof(*this));
-  code=NULL;
-  names=0;
-  firstStr=0;
-  namedBracketsCount=0;
   firstptr=new UniSet();
   lastptr=new UniSet();
 
@@ -522,26 +508,24 @@ inline RegExp::~RegExp()
   if(code)
   {
     delete [] code;
-    code=NULL;
   }
   if(names)
   {
     delete [] names;
-    names=0;
   }
   delete firstptr;
   delete lastptr;
 }
 
 template <typename INPUT_ITER>
-inline int RegExp::calcLength(INPUT_ITER src,INPUT_ITER end)
+inline size_t RegExp::calcLength(INPUT_ITER src,INPUT_ITER end)
 {
-  int length=3;//global brackets
+  size_t length=3;//global brackets
   INPUT_ITER brackets[MAXDEPTH];
-  int count=0;
+  size_t count=0;
   INPUT_ITER save;
   bracketsCount=1;
-  int inquote=0;
+  size_t inquote=0;
   INPUT_ITER start=src;
 
   for(;src!=end;++src,length++)
@@ -558,26 +542,32 @@ inline int RegExp::calcLength(INPUT_ITER src,INPUT_ITER end)
       if(*src=='x')
       {
         ++src;
-        int c=RE_TOLOWER(*src);
+        int c=RE_TOLOWER(static_cast<rechar_t>(*src));
         if((c>='0' && c<='9')||(c>='a' && c<='f'))
         {
-          int c2=RE_TOLOWER(src[1]);
+          int c2=RE_TOLOWER(static_cast<rechar_t>(src[1]));
           if((c2>='0' && c2<='9')||(c2>='a' && c2<='f'))++src;
 
-        }else return SetError(errSyntax,src-start);
+        }else return SetErrorSz(errSyntax,src-start);
       }
       if(*src=='p')
       {
         ++src;
         if(*src!='{')
-          return SetError(errSyntax,src-start);
+          return SetErrorSz(errSyntax,src-start);
         ++src;
         INPUT_ITER save2=src;
-        while(src<end && (RE_ISWORD(*src) || RE_ISSPACE(*src)) && *src!='}')++src;
+        while(src<end &&
+            (RE_ISWORD(static_cast<rechar_t>(*src)) || RE_ISSPACE(static_cast<rechar_t>(*src))) && *src!='}')
+        {
+            ++src;
+        }
         if(src>=end)
-          return SetError(errBrackets,save2-start);
-        if(*src!='}' && !(RE_ISWORD(*src) || RE_ISSPACE(*src)))
-          return SetError(errSyntax,src-start);
+        {
+            return SetErrorSz(errBrackets, save2 - start);
+        }
+        if(*src!='}' && !(RE_ISWORD(static_cast<rechar_t>(*src)) || RE_ISSPACE(static_cast<rechar_t>(*src))))
+          return SetErrorSz(errSyntax,src-start);
       }
       continue;
     }
@@ -587,7 +577,7 @@ inline int RegExp::calcLength(INPUT_ITER src,INPUT_ITER end)
       {
         brackets[count]=src;
         count++;
-        if(count==MAXDEPTH)return SetError(errMaxDepth,src-start);
+        if(count==MAXDEPTH)return SetErrorSz(errMaxDepth,src-start);
         if(src[1]=='?')
         {
           src+=2;
@@ -595,11 +585,15 @@ inline int RegExp::calcLength(INPUT_ITER src,INPUT_ITER end)
           {
             save=src;
             ++src;
-            while(src<end && (RE_ISWORD(*src) || RE_ISSPACE(*src)) && *src!='}')++src;
+            while(src<end && (RE_ISWORD(static_cast<rechar_t>(*src)) || RE_ISSPACE(static_cast<rechar_t>(*src))) &&
+                  *src!=static_cast<rechar_t>('}'))++src;
             if(src>=end)
-              return SetError(errBrackets,save-start);
-            if(*src!='}' && !(RE_ISWORD(*src) || RE_ISSPACE(*src)))
-              return SetError(errSyntax,src-start);
+              return SetErrorSz(errBrackets,save-start);
+            if(*src!=static_cast<rechar_t>('}') &&
+                    (!(RE_ISWORD(static_cast<rechar_t>(*src))) || RE_ISSPACE(static_cast<rechar_t>(*src))))
+            {
+                return SetErrorSz(errSyntax, src - start);
+            }
           }
         }else
         {
@@ -609,8 +603,8 @@ inline int RegExp::calcLength(INPUT_ITER src,INPUT_ITER end)
       }
       case ')':
       {
+        if(count==0)return SetErrorSz(errBrackets,src-start);
         count--;
-        if(count<0)return SetError(errBrackets,src-start);
         break;
       }
       case '{':
@@ -623,7 +617,7 @@ inline int RegExp::calcLength(INPUT_ITER src,INPUT_ITER end)
         {
           save=src;
           while(src<end && *src!='}')++src;
-          if(src>=end)return SetError(errBrackets,save-start);
+          if(src>=end)return SetErrorSz(errBrackets,save-start);
         }
         if(src[1]=='?')++src;
         break;
@@ -632,30 +626,30 @@ inline int RegExp::calcLength(INPUT_ITER src,INPUT_ITER end)
       {
         save=src;
         while(src<end && *src!=']')++src;
-        if(src>=end)return SetError(errBrackets,save-start);
+        if(src>=end)return SetErrorSz(errBrackets,save-start);
         break;
       }
     }
   }
   if(count)
   {
-    return SetError(errBrackets,brackets[0]-start);
+    return SetErrorSz(errBrackets,brackets[0]-start);
   }
   return length;
 }
 
 template <typename INPUT_ITER>
-inline int RegExp::Compile(INPUT_ITER src,int options)
+inline bool RegExp::Compile(INPUT_ITER src,int options)
 {
   INPUT_ITER end=reStrEnd(src);
   return CompileEx(src,end,options,'/');
 }
 
 template <typename INPUT_ITER>
-inline int RegExp::CompileEx(INPUT_ITER src,INPUT_ITER end,int options,rechar_t delim)
+inline bool RegExp::CompileEx(INPUT_ITER src,INPUT_ITER end,int options,rechar_t delim)
 {
   INPUT_ITER srcstart=src,srcend=end;
-  int relength;
+  size_t relength;
   haveFirst=false;
   haveLast=false;
   firstStr=0;
@@ -670,7 +664,7 @@ inline int RegExp::CompileEx(INPUT_ITER src,INPUT_ITER end,int options,rechar_t 
     if(*src!=delim)return SetError(errSyntax,0);
     srcstart=src+1;
     srcend=srcstart;
-    while((c=*srcend) && c!=delim)
+    while((c=static_cast<rechar_t>(*srcend))!=0 && c!=delim)
     {
       if(*srcend=='\\')
       {
@@ -700,25 +694,25 @@ inline int RegExp::CompileEx(INPUT_ITER src,INPUT_ITER end,int options,rechar_t 
       ++opt;
     }
   }
-  ignoreCase=options&OP_IGNORECASE?1:0;
+  ignoreCase=options&OP_IGNORECASE?true:false;
   relength=calcLength(srcstart,srcend);
   if(relength==0)
   {
-    return 0;
+    return false;
   }
   code=new REOpCode[relength];
   memset(code,0,sizeof(REOpCode)*relength);
-  for(int i=0;i<relength;i++)
+  for(size_t i=0;i<relength;i++)
   {
     code[i].next=i<relength-1?code+i+1:0;
     code[i].prev=i>0?code+i-1:0;
     code[i].nextVal=0;
   }
-  int result=innerCompile(srcstart,srcend,options);
+  bool result=innerCompile(srcstart,srcend,options);
   if(!result)
   {
     delete [] code;
-    code=NULL;
+    code=nullptr;
   }else
   {
     errorCode=errNone;
@@ -732,7 +726,7 @@ template <typename INPUT_ITER>
 inline int RegExp::parseNum(INPUT_ITER& src)
 {
   int res=0;//atoi((const char*)src+i);
-  while(RE_ISDIGIT(*src))
+  while(RE_ISDIGIT(static_cast<rechar_t>(*src)))
   {
     res*=10;
     res+=*src-'0';
@@ -874,22 +868,22 @@ inline int RegExp::CalcPatternLength(PREOpCode from,PREOpCode to)
 }
 
 template <typename INPUT_ITER>
-inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
+inline bool RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
 {
   int j;
   PREOpCode brackets[MAXDEPTH];
   // current brackets depth
   // one place reserved for surrounding 'main' brackets
-  int brdepth=1;
+  size_t brdepth=1;
 
   INPUT_ITER src=start;
 
   // compiling interior of lookbehind
   // used to apply restrictions of lookbehind
-  int lookbehind=0;
+  size_t lookbehind=0;
 
   // counter of normal brackets
-  int brcount=0;
+  size_t brcount=0;
 
   std::vector<NamedMatch> nm;
 
@@ -899,7 +893,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
 
 
   // quoting is active
-  int inquote=0;
+  bool inquote=0;
 
   maxBackRef=0;
 
@@ -908,9 +902,9 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
   code->op=opOpenBracket;
   code->bracket.index=0;
 
-  int pos=1;
+  size_t pos=1;
 
-  register PREOpCode op;//=code;
+  PREOpCode op;//=code;
 
   brackets[0]=code;
 
@@ -922,7 +916,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
     if(inquote && *src!='\\')
     {
       op->op=ignoreCase?opSymbolIgnoreCase:opSymbol;
-      op->symbol=ignoreCase?RE_TOLOWER(*src):*src;
+      op->symbol=static_cast<rechar_t>(ignoreCase?RE_TOLOWER(static_cast<rechar_t>(*src)):*src);
       if(ignoreCase && RE_TOUPPER(op->symbol)==op->symbol)op->op=opSymbol;
       continue;
     }
@@ -936,15 +930,15 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
         op=code+pos;
         pos++;
         op->op=ignoreCase?opSymbolIgnoreCase:opSymbol;
-        op->symbol=ignoreCase?RE_TOLOWER(*src):*src;
+        op->symbol=static_cast<rechar_t>(ignoreCase?RE_TOLOWER(static_cast<rechar_t>(*src)):*src);
         if(ignoreCase && RE_TOUPPER(op->symbol)==op->symbol)op->op=opSymbol;
         continue;
       }
       op->op=opType;
       switch(*src)
       {
-        case 'Q':inquote=1;pos--;continue;
-        case 'E':inquote=0;pos--;continue;
+        case 'Q':inquote=true;pos--;continue;
+        case 'E':inquote=false;pos--;continue;
 
         case 'b':op->op=opWordBound;continue;
         case 'B':op->op=opNotWordBound;continue;
@@ -979,7 +973,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
           op->op=opNamedBackRef;
           ++src;
           if(*src!='{')return SetError(errSyntax,src-start);
-          int len=0;
+          size_t len=0;
           INPUT_ITER n=++src;
           while(*src!='}')++len,++src;
           if(len>0)
@@ -990,13 +984,13 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
 
             for(INPUT_ITER it=n,nend=src;it!=nend;++it)
             {
-              *dst++=*it;
+              *dst++=static_cast<rechar_t>(*it);
             }
             *dst=0;
             bool found=false;
-            for(std::vector<NamedMatch>::iterator it=nm.begin(),nend=nm.end();it!=nend;++it)
+            for(auto& m :nm)
             {
-              if(it->checkName(op->refname))
+              if(m.checkName(op->refname))
               {
                 found=true;
                 break;
@@ -1016,17 +1010,17 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
           int c=0;
           ++src;
           if(src>=end)return SetError(errSyntax,src-start-1);
-          c=RE_TOLOWER(*src);
+          c=RE_TOLOWER(static_cast<rechar_t>(*src));
           if((c>='0' && c<='9') ||
              (c>='a' && c<='f'))
           {
             c-='0';
             if(c>9)c-='a'-'0'-10;
             op->op=ignoreCase?opSymbolIgnoreCase:opSymbol;
-            op->symbol=c;
+            op->symbol=static_cast<rechar_t>(c);
             if(src+1<end)
             {
-              c=RE_TOLOWER(src[1]);
+              c=RE_TOLOWER(static_cast<rechar_t>(src[1]));
               if((c>='0' && c<='9') ||
                  (c>='a' && c<='f'))
               {
@@ -1051,24 +1045,24 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
         }
         default:
         {
-          if(RE_ISDIGIT(*src))
+          if(RE_ISDIGIT(static_cast<rechar_t>(*src)))
           {
             INPUT_ITER save=src;
             op->op=opBackRef;
             op->refindex=parseNum(src);--src;
-            if(op->refindex<=0 || op->refindex>brcount || !closedbrackets[op->refindex])
+            if(op->refindex<=0 || op->refindex>static_cast<int>(brcount) || !closedbrackets[op->refindex])
             {
               return SetError(errInvalidBackRef,save-start-1);
             }
-            if(op->refindex>maxBackRef)maxBackRef=op->refindex;
+            if(op->refindex>static_cast<int>(maxBackRef))maxBackRef=static_cast<size_t>(op->refindex);
           }else
           {
-            if((options&OP_STRICT) && RE_ISALPHA(*src))
+            if((options&OP_STRICT) && RE_ISALPHA(static_cast<rechar_t>(*src)))
             {
               return SetError(errInvalidEscape,src-start-1);
             }
             op->op=ignoreCase?opSymbolIgnoreCase:opSymbol;
-            op->symbol=ignoreCase?RE_TOLOWER(*src):*src;
+            op->symbol=static_cast<rechar_t>(ignoreCase?RE_TOLOWER(static_cast<rechar_t>(*src)):*src);
             if(RE_TOLOWER(op->symbol)==RE_TOUPPER(op->symbol))
             {
               op->op=opSymbol;
@@ -1160,19 +1154,17 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
             {
               op->op=opNamedBracket;
               INPUT_ITER nstart=++src;
-              int len=0;
+              size_t len=0;
               while(*src && *src!='}')++len,++src;
               if(len)
               {
                 rechar_t* dst;
                 op->nbracket.name=dst=new rechar_t[len+1];
-                //memcpy(op->nbracket.name,src+i,len*sizeof(rechar));
                 for(INPUT_ITER it=nstart,nend=src;it!=nend;++it)
                 {
-                  *dst++=*it;
+                  *dst++=static_cast<rechar_t>(*it);
                 }
                 *dst=0;
-                //h.SetItem((char*)op->nbracket.name,m);
               }else
               {
                 op->op=opOpenBracket;
@@ -1189,7 +1181,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
         {
           brcount++;
           closedbrackets[brcount]=false;
-          op->bracket.index=brcount;
+          op->bracket.index=static_cast<int>(brcount);
         }
         brackets[brdepth]=op;
         brdepth++;
@@ -1261,42 +1253,39 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
       case '[':
       {
         ++src;
-        int negative=0;
+        bool negative=0;
         if(*src=='^')
         {
-          negative=1;
+          negative=true;
           ++src;
         }
         int lastchar=-1;
         int classsize=0;
         op->op=opSymbolClass;
-        //op->symbolclass=new rechar[32];
-        //memset(op->symbolclass,0,32);
         op->symbolclass=new UniSet();
         tmpclass=op->symbolclass;
-        int classindex=0;
         for(;*src!=']';++src)
         {
           if(*src=='\\')
           {
             ++src;
-            int isnottype=0;
-            int type=0;
+            bool isnottype=false;
+            uint8_t type=0;
             lastchar=0;
             switch(*src)
             {
-              case 'D':isnottype=1;
-              case 'd':type=TYPE_DIGITCHAR;classindex=0;break;
-              case 'W':isnottype=1;
-              case 'w':type=TYPE_WORDCHAR;classindex=64;break;
-              case 'S':isnottype=1;
-              case 's':type=TYPE_SPACECHAR;classindex=32;break;
-              case 'L':isnottype=1;
-              case 'l':type=TYPE_LOWCASE;classindex=96;break;
-              case 'U':isnottype=1;
-              case 'u':type=TYPE_UPCASE;classindex=128;break;
-              case 'I':isnottype=1;
-              case 'i':type=TYPE_ALPHACHAR;classindex=160;break;
+              case 'D':isnottype=true;
+              case 'd':type=TYPE_DIGITCHAR;break;
+              case 'W':isnottype=true;
+              case 'w':type=TYPE_WORDCHAR;break;
+              case 'S':isnottype=true;
+              case 's':type=TYPE_SPACECHAR;break;
+              case 'L':isnottype=true;
+              case 'l':type=TYPE_LOWCASE;break;
+              case 'U':isnottype=true;
+              case 'u':type=TYPE_UPCASE;break;
+              case 'I':isnottype=true;
+              case 'i':type=TYPE_ALPHACHAR;break;
               case 'n':lastchar='\n';break;
               case 'r':lastchar='\r';break;
               case 't':lastchar='\t';break;
@@ -1307,7 +1296,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
                 int c=0;
                 ++src;
                 if(src>=end)return SetError(errSyntax,src-start-1);
-                c=RE_TOLOWER(*src);
+                c=RE_TOLOWER(static_cast<rechar_t>(*src));
                 if((c>='0' && c<='9') ||
                    (c>='a' && c<='f'))
                 {
@@ -1316,7 +1305,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
                   lastchar=c;
                   if(src+1<end)
                   {
-                    c=RE_TOLOWER(src[1]);
+                    c=RE_TOLOWER(static_cast<rechar_t>(src[1]));
                     if((c>='0' && c<='9') ||
                        (c>='a' && c<='f'))
                     {
@@ -1332,7 +1321,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
               }
               default:
               {
-                if((options&OP_STRICT) && RE_ISALPHA(*src))
+                if((options&OP_STRICT) && RE_ISALPHA(static_cast<rechar_t>(*src)))
                 {
                   return SetError(errInvalidEscape,src-start-1);
                 }
@@ -1349,34 +1338,15 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
                 tmpclass->addType(type);
               }
               classsize=257;
-              //for(int j=0;j<32;j++)op->symbolclass[j]|=charbits[classindex+j]^isnottype;
-              //classsize+=charsizes[classindex>>5];
-              //int setbit;
-              /*for(int j=0;j<256;j++)
-              {
-                setbit=(chartypes[j]^isnottype)&type;
-                if(setbit)
-                {
-                  if(ignorecase)
-                  {
-                    SetBit(op->symbolclass,lc[j]);
-                    SetBit(op->symbolclass,uc[j]);
-                  }else
-                  {
-                    SetBit(op->symbolclass,j);
-                  }
-                  classsize++;
-                }
-              }*/
             }else
             {
               if(options&OP_IGNORECASE)
               {
-                tmpclass->SetBit(RE_TOLOWER(lastchar));
-                tmpclass->SetBit(RE_TOUPPER(lastchar));
+                tmpclass->SetBit(RE_TOLOWER(static_cast<rechar_t>(lastchar)));
+                tmpclass->SetBit(RE_TOUPPER(static_cast<rechar_t>(lastchar)));
               }else
               {
-                tmpclass->SetBit(lastchar);
+                tmpclass->SetBit(static_cast<rechar_t>(lastchar));
               }
               classsize++;
             }
@@ -1393,7 +1363,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
                 if(to=='x')
                 {
                   src+=2;
-                  to=RE_TOLOWER(src[1]);
+                  to=RE_TOLOWER(static_cast<rechar_t>(src[1]));
                   if((to>='0' && to<='9') ||
                      (to>='a' && to<='f'))
                   {
@@ -1401,7 +1371,7 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
                     if(to>9)to-='a'-'0'-10;
                     if(src+1<end)
                     {
-                      int c=RE_TOLOWER(src[2]);
+                      int c=RE_TOLOWER(static_cast<rechar_t>(src[2]));
                       if((c>='0' && c<='9') ||
                          (c>='a' && c<='f'))
                       {
@@ -1425,11 +1395,11 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
               {
                 if(ignoreCase)
                 {
-                  tmpclass->SetBit(RE_TOLOWER(j));
-                  tmpclass->SetBit(RE_TOUPPER(j));
+                  tmpclass->SetBit(RE_TOLOWER(static_cast<rechar_t>(j)));
+                  tmpclass->SetBit(RE_TOUPPER(static_cast<rechar_t>(j)));
                 }else
                 {
-                  tmpclass->SetBit(j);
+                  tmpclass->SetBit(static_cast<rechar_t>(j));
                 }
                 classsize++;
               }
@@ -1439,11 +1409,11 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
           lastchar=*src;
           if(ignoreCase)
           {
-            tmpclass->SetBit(RE_TOLOWER(lastchar));
-            tmpclass->SetBit(RE_TOUPPER(lastchar));
+            tmpclass->SetBit(RE_TOLOWER(static_cast<rechar_t>(lastchar)));
+            tmpclass->SetBit(RE_TOUPPER(static_cast<rechar_t>(lastchar)));
           }else
           {
-            tmpclass->SetBit(lastchar);
+            tmpclass->SetBit(static_cast<rechar_t>(lastchar));
           }
           classsize++;
         }
@@ -1461,11 +1431,11 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
           if(ignoreCase)
           {
             op->op+=2;
-            op->symbol=RE_TOLOWER(lastchar);
+            op->symbol=RE_TOLOWER(static_cast<rechar_t>(lastchar));
           }
           else
           {
-            op->symbol=lastchar;
+            op->symbol=static_cast<rechar_t>(lastchar);
           }
 
         }
@@ -1613,16 +1583,16 @@ inline int RegExp::innerCompile(INPUT_ITER start,INPUT_ITER end,int options)
         op->op=options&OP_IGNORECASE?opSymbolIgnoreCase:opSymbol;
         if(ignoreCase)
         {
-          op->symbol=RE_TOLOWER(*src);
+          op->symbol=RE_TOLOWER(static_cast<rechar_t>(*src));
         }else
         {
-          op->symbol=*src;
+          op->symbol=static_cast<rechar_t>(*src);
         }
       }break;
     }//switch(src[i])
   }//for()
 
-  namedBracketsCount=(int)nm.size();
+  namedBracketsCount=nm.size();
   if(namedBracketsCount)
   {
     names=new const rechar_t*[namedBracketsCount];
@@ -1671,7 +1641,7 @@ inline StateStackItem<INPUT_ITER>* StateStack<INPUT_ITER>::findByPos(PREOpCode p
       return item;
     }
   }
-  return 0;//avoid warning
+  //return 0;//avoid warning
 }
 
 template <typename INPUT_ITER>
@@ -1682,7 +1652,7 @@ inline int RegExp::strCmp(INPUT_ITER& str,INPUT_ITER strend,INPUT_ITER start,INP
   {
     while(start<end)
     {
-      if(str==strend || RE_TOLOWER(*str)!=RE_TOLOWER(*start)){str=save;return 0;}
+      if(str==strend || RE_TOLOWER(static_cast<rechar_t>(*str))!=RE_TOLOWER(static_cast<rechar_t>(*start))){str=save;return 0;}
       ++str;
       ++start;
     }
@@ -1710,7 +1680,7 @@ inline int RegExp::strCmp(INPUT_ITER& str,INPUT_ITER strend,INPUT_ITER start,INP
               case opSymbol: \
               { \
                 jj=next->symbol; \
-                if(*str!=jj) \
+                if(static_cast<rechar_t >(*str)!=jj) \
                 while(str<strend && cmp && st->max--!=0)\
                 {\
                   ++str;\
@@ -1732,34 +1702,34 @@ inline int RegExp::strCmp(INPUT_ITER& str,INPUT_ITER strend,INPUT_ITER start,INP
               case opSymbolIgnoreCase: \
               { \
                 jj=next->symbol; \
-                if(RE_TOLOWER(*str)!=jj) \
+                if(RE_TOLOWER(static_cast<rechar_t >(*str))!=jj) \
                 while(str<strend && cmp && st->max--!=0)\
                 {\
                   ++str;\
-                  if(RE_TOLOWER(*str)==jj)break;\
+                  if(RE_TOLOWER(static_cast<rechar_t >(*str))==jj)break;\
                 } \
                 break; \
               } \
               case opNotSymbolIgnoreCase: \
               { \
                 jj=next->symbol; \
-                if(RE_TOLOWER(*str)==jj) \
+                if(RE_TOLOWER(static_cast<rechar_t >(*str))==jj) \
                 while(str<strend && cmp && st->max--!=0)\
                 {\
                   ++str;\
-                  if(RE_TOLOWER(*str)!=jj)break;\
+                  if(RE_TOLOWER(static_cast<rechar_t >(*str))!=jj)break;\
                 } \
                 break; \
               } \
               case opString:\
               {\
                 rechar_t* sstr=next->str.str;\
-                int ii;\
-                int l=next->str.length;\
+                size_t ii;\
+                size_t l=next->str.length;\
                 jj=*sstr;\
                 while(str<strend && cmp && st->max--!=0)\
                 {\
-                  if(*str!=jj)\
+                  if(static_cast<rechar_t >(*str)!=jj)\
                   {\
                     ++str;\
                     continue;\
@@ -1776,19 +1746,19 @@ inline int RegExp::strCmp(INPUT_ITER& str,INPUT_ITER strend,INPUT_ITER start,INP
               case opStringIgnoreCase:\
               {\
                 rechar_t* sstr=next->str.str;\
-                int ii;\
-                int l=next->str.length;\
+                size_t ii;\
+                size_t l=next->str.length;\
                 jj=*sstr;\
                 while(str<strend && cmp && st->max--!=0)\
                 {\
-                  if(RE_TOLOWER(*str)!=jj)\
+                  if(RE_TOLOWER(static_cast<rechar_t >(*str))!=jj)\
                   {\
                     ++str;\
                     continue;\
                   }\
                   for(ii=1;ii<l;++ii)\
                   {\
-                    if(RE_TOLOWER(str[ii])!=sstr[ii])break;\
+                    if(RE_TOLOWER(static_cast<rechar_t >(str[ii]))!=static_cast<rechar_t >(sstr[ii]))break;\
                   }\
                   if(ii==l)break;\
                   ++str;\
@@ -1797,34 +1767,34 @@ inline int RegExp::strCmp(INPUT_ITER& str,INPUT_ITER strend,INPUT_ITER start,INP
               }\
               case opType: \
               { \
-                jj=next->type; \
-                if(!(RE_ISTYPE(*str,jj))) \
+                int type=next->type; \
+                if(!(RE_ISTYPE(static_cast<rechar_t >(*str),type))) \
                 while(str<strend && cmp && st->max--!=0)\
                 {\
                   ++str;\
-                  if(RE_ISTYPE(*str,jj))break;\
+                  if(RE_ISTYPE(static_cast<rechar_t >(*str),type))break;\
                 } \
                 break; \
               } \
               case opNotType: \
               { \
-                jj=next->type; \
-                if((RE_ISTYPE(*str,jj))) \
+                int type=next->type; \
+                if((RE_ISTYPE(static_cast<rechar_t >(*str),type))) \
                 while(str<strend && cmp && st->max--!=0)\
                 {\
                   ++str;\
-                  if(!(RE_ISTYPE(*str,jj)))break;\
+                  if(!(RE_ISTYPE(static_cast<rechar_t>(*str),type)))break;\
                 } \
                 break; \
               } \
               case opSymbolClass: \
               { \
                 cl=next->symbolclass; \
-                if(!cl->GetBit(*str)) \
+                if(!cl->GetBit(static_cast<rechar_t >(*str))) \
                 while(str<strend && cmp && st->max--!=0)\
                 {\
                   ++str;\
-                  if(cl->GetBit(*str))break;\
+                  if(cl->GetBit(static_cast<rechar_t >(*str)))break;\
                 } \
                 break; \
               } \
@@ -1833,18 +1803,18 @@ inline int RegExp::strCmp(INPUT_ITER& str,INPUT_ITER strend,INPUT_ITER start,INP
 
 
 template <typename INPUT_ITER>
-inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,MatchInfo* mi)
+inline bool RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,MatchInfo* mi)
 {
 //  register prechar str=start;
-  int i,j;
+  size_t i,j;
   int minimizing;
-  PREOpCode op,tmp;
+  PREOpCode op,tmp = nullptr;
   SMatch* m=mi->br;
   SMatch* match=m;
   UniSet *cl;
   //int inrangebracket=0;
   if(errorCode==errNotCompiled)return 0;
-  if(mi->brSize<maxBackRef)return SetError(errNotEnoughMatches,maxBackRef);
+  if(mi->brSize<maxBackRef)return SetError(errNotEnoughMatches,0);
   if(namedBracketsCount>0 && (!mi->nm || mi->nmSize==0))return SetError(errNoStorageForNB,0);
   StateStack<INPUT_ITER> stack;
   StateStackItem<INPUT_ITER>* st=stack.firstPage.stack;
@@ -1892,23 +1862,23 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       }
       case opWordBound:
       {
-        if((str==start && RE_ISWORD(*str))|| (str>start && (
-           (!(RE_ISWORD(str[-1])) && RE_ISWORD(*str)) ||
-           (!(RE_ISWORD(*str)) && RE_ISWORD(str[-1])) ||
-           (str==strend && RE_ISWORD(str[-1])))))continue;
+        if((str==start && RE_ISWORD(static_cast<rechar_t >(*str))) || (str>start && (
+           (!(RE_ISWORD(static_cast<rechar_t >(str[-1]))) && RE_ISWORD(static_cast<rechar_t >(*str))) ||
+           (!(RE_ISWORD(static_cast<rechar_t >(*str))) && RE_ISWORD(static_cast<rechar_t >(str[-1]))) ||
+           (str==strend && RE_ISWORD(static_cast<rechar_t >(str[-1]))))))continue;
         break;
       }
       case opNotWordBound:
       {
-        if(!((str==start && RE_ISWORD(*str))||
-           (!(RE_ISWORD(str[-1])) && RE_ISWORD(*str)) ||
-           (!(RE_ISWORD(*str)) && RE_ISWORD(str[-1])) ||
-           (str==strend && RE_ISWORD(str[-1]))))continue;
+        if(!((str==start && RE_ISWORD(static_cast<rechar_t >(*str)))||
+           (!(RE_ISWORD(static_cast<rechar_t >(str[-1]))) && RE_ISWORD(static_cast<rechar_t >(*str))) ||
+           (!(RE_ISWORD(static_cast<rechar_t >(*str))) && RE_ISWORD(static_cast<rechar_t >(str[-1]))) ||
+           (str==strend && RE_ISWORD(static_cast<rechar_t >(str[-1])))))continue;
         break;
       }
       case opType:
       {
-        if(RE_ISTYPE(*str,OP.type))
+        if(RE_ISTYPE(static_cast<rechar_t >(*str),OP.type))
         {
           ++str;
           continue;
@@ -1917,7 +1887,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       }
       case opNotType:
       {
-        if(!(RE_ISTYPE(*str,OP.type)))
+        if(!(RE_ISTYPE(static_cast<rechar_t >(*str),OP.type)))
         {
           ++str;
           continue;
@@ -1958,7 +1928,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       }
       case opSymbolIgnoreCase:
       {
-        if(RE_TOLOWER(*str)==OP.symbol)
+        if(RE_TOLOWER(static_cast<rechar_t >(*str))==OP.symbol)
         {
           ++str;
           continue;
@@ -1967,7 +1937,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       }
       case opNotSymbolIgnoreCase:
       {
-        if(RE_TOLOWER(*str)!=OP.symbol)
+        if(RE_TOLOWER(static_cast<rechar_t >(*str))!=OP.symbol)
         {
           ++str;
           continue;
@@ -1983,12 +1953,12 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       case opStringIgnoreCase:
       {
         i=0;
-        while(str<strend && RE_TOLOWER(*str)==OP.str.str[i] && i<OP.str.length)++i,++str;
+        while(str<strend && RE_TOLOWER(static_cast<rechar_t >(*str))==OP.str.str[i] && i<OP.str.length)++i,++str;
         if(i==OP.str.length)continue;
       }break;
       case opSymbolClass:
       {
-        if(OP.symbolclass->GetBit(*str))
+        if(OP.symbolclass->GetBit(static_cast<rechar_t >(*str)))
         {
           ++str;
           continue;
@@ -1997,7 +1967,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       }
       case opOpenBracket:
       {
-        if(OP.bracket.index>=0 && OP.bracket.index<mi->brSize)
+        if(OP.bracket.index>=0 && static_cast<size_t>(OP.bracket.index)<mi->brSize)
         {
           //if(inrangebracket)
           {
@@ -2052,7 +2022,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
         {
           case opOpenBracket:
           {
-            if(OP.bracket.index>=0 && OP.bracket.index<mi->brCount)
+            if(OP.bracket.index>=0 && static_cast<size_t>(OP.bracket.index)<mi->brCount)
             {
               match[OP.bracket.index].end=(int)(str-start);
             }
@@ -2070,7 +2040,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
             *st=*ps;
             if(str==st->startstr)
             {
-              if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+              if(OP.range.bracket.index>=0 && static_cast<size_t>(OP.range.bracket.index)<mi->brSize)
               {
                 match[OP.range.bracket.index].end=(int)(str-start);
               }
@@ -2085,7 +2055,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
               st->savestr=str;
               op=st->pos;
               st=stack.pushState();
-              if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+              if(OP.range.bracket.index>=0 && static_cast<size_t>(OP.range.bracket.index)<mi->brSize)
               {
                 match[OP.range.bracket.index].start=(int)(str-start);
                 st->op=opOpenBracket;
@@ -2106,14 +2076,14 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
             st->max--;
             if(st->max==0)
             {
-              if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+              if(OP.range.bracket.index>=0 && static_cast<size_t>(OP.range.bracket.index)<mi->brSize)
               {
                 match[OP.range.bracket.index].end=(int)(str-start);
               }
               //inrangebracket--;
               continue;
             }
-            if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+            if(OP.range.bracket.index>=0 && static_cast<size_t>(OP.range.bracket.index)<mi->brSize)
             {
               match[OP.range.bracket.index].end=(int)(str-start);
               tmp=op;
@@ -2122,7 +2092,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
             st->savestr=str;
             op=st->pos;
             st=stack.pushState();
-            if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+            if(OP.range.bracket.index>=0 && static_cast<size_t>(OP.range.bracket.index)<mi->brSize)
             {
               st->op=opOpenBracket;
               st->pos=tmp;
@@ -2154,7 +2124,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
               st->savestr=str;
               op=st->pos;
               st=stack.pushState();
-              if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+              if(OP.range.bracket.index>=0 && static_cast<size_t>(OP.range.bracket.index)<mi->brSize)
               {
                 match[OP.range.bracket.index].start=(int)(str-start);
                 st->op=opOpenBracket;
@@ -2172,7 +2142,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
               }
               continue;
             }
-            if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+            if(OP.range.bracket.index>=0 && static_cast<size_t>(OP.range.bracket.index)<mi->brSize)
             {
               match[OP.range.bracket.index].end=(int)(str-start);
             }
@@ -2232,7 +2202,8 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       {
         if(OP.op==opNamedBackRef)
         {
-          if(!(m=mi->hasNamedMatch(OP.refname)))break;
+          m=mi->hasNamedMatch(OP.refname);
+          if(!m)break;
         }else
         {
           m=&match[OP.refindex];
@@ -2246,8 +2217,8 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       {
         st->op=OP.op;
         minimizing=OP.op==opAnyMinRange;
-        j=OP.range.min;
-        st->max=OP.range.max-j;
+        j=static_cast<size_t>(OP.range.min);
+        st->max=static_cast<int>(OP.range.max-j);
         if(OP.range.op==opCharAny)
         {
           for(i=0;i<j;i++,++str)
@@ -2302,7 +2273,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
             if(st->max==-1)break;
           }
         }
-        if(OP.range.max==j)continue;
+        if(OP.range.max==static_cast<int>(j))continue;
         st->savestr=str;
         st->pos=op;
         st=stack.pushState();
@@ -2313,22 +2284,22 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       {
         st->op=OP.op;
         minimizing=OP.op==opSymbolMinRange;
-        j=OP.range.min;
-        st->max=OP.range.max-j;
+        j=static_cast<size_t>(OP.range.min);
+        st->max=static_cast<int>(OP.range.max-j);
         if(ignoreCase)
         {
           for(i=0;i<j;i++,++str)
           {
-            if(str>strend || RE_TOLOWER(*str)!=OP.range.symbol)break;
+            if(str>strend || RE_TOLOWER(static_cast<rechar_t>(*str))!=OP.range.symbol)break;
           }
           if(i<j)break;
           st->startstr=str;
           if(!minimizing)
           {
-            while(str<strend && RE_TOLOWER(*str)==OP.range.symbol && st->max--!=0)++str;
+            while(str<strend && RE_TOLOWER(static_cast<rechar_t>(*str))==OP.range.symbol && st->max--!=0)++str;
           }else
           {
-            MINSKIP(RE_TOLOWER(*str)==OP.range.symbol);
+            MINSKIP(RE_TOLOWER(static_cast<rechar_t>(*str))==OP.range.symbol);
             if(st->max==-1)break;
           }
         }else
@@ -2348,7 +2319,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
             if(st->max==-1)break;
           }
         }
-        if(OP.range.max==j)continue;
+        if(OP.range.max==static_cast<int>(j))continue;
         st->savestr=str;
         st->pos=op;
         st=stack.pushState();
@@ -2359,13 +2330,13 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       {
         st->op=OP.op;
         minimizing=OP.op==opNotSymbolMinRange;
-        j=OP.range.min;
-        st->max=OP.range.max-j;
+        j=static_cast<size_t>(OP.range.min);
+        st->max=static_cast<int>(OP.range.max-j);
         if(ignoreCase)
         {
           for(i=0;i<j;i++,++str)
           {
-            if(str>strend || RE_TOLOWER(*str)==OP.range.symbol)break;
+            if(str>strend || RE_TOLOWER(static_cast<rechar_t>(*str))==OP.range.symbol)break;
           }
           if(i<j)
           {
@@ -2374,10 +2345,10 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
           st->startstr=str;
           if(!minimizing)
           {
-            while(str<strend && RE_TOLOWER(*str)!=OP.range.symbol && st->max--!=0)++str;
+            while(str<strend && RE_TOLOWER(static_cast<rechar_t>(*str))!=OP.range.symbol && st->max--!=0)++str;
           }else
           {
-            MINSKIP(RE_TOLOWER(*str)!=OP.range.symbol);
+            MINSKIP(RE_TOLOWER(static_cast<rechar_t>(*str))!=OP.range.symbol);
             if(st->max==-1)break;
           }
         }else
@@ -2403,7 +2374,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
             }
           }
         }
-        if(OP.range.max==j)
+        if(OP.range.max==static_cast<int>(j))
         {
           continue;
         }
@@ -2417,23 +2388,23 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       {
         st->op=OP.op;
         minimizing=OP.op==opClassMinRange;
-        j=OP.range.min;
-        st->max=OP.range.max-j;
+        j=static_cast<size_t>(OP.range.min);
+        st->max=static_cast<int>(OP.range.max-j);
         for(i=0;i<j;i++,++str)
         {
-          if(str>strend || !OP.range.symbolclass->GetBit(*str))break;
+          if(str>strend || !OP.range.symbolclass->GetBit(static_cast<rechar_t>(*str)))break;
         }
         if(i<j)break;
         st->startstr=str;
         if(!minimizing)
         {
-          while(str<strend && OP.range.symbolclass->GetBit(*str) && st->max--!=0)++str;
+          while(str<strend && OP.range.symbolclass->GetBit(static_cast<rechar_t>(*str)) && st->max--!=0)++str;
         }else
         {
-          MINSKIP(OP.range.symbolclass->GetBit(*str));
+          MINSKIP(OP.range.symbolclass->GetBit(static_cast<rechar_t>(*str)));
           if(st->max==-1)break;
         }
-        if(OP.range.max==j)continue;
+        if(OP.range.max==static_cast<int>(j))continue;
         st->savestr=str;
         st->pos=op;
         st=stack.pushState();
@@ -2444,23 +2415,23 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       {
         st->op=OP.op;
         minimizing=OP.op==opTypeMinRange;
-        j=OP.range.min;
-        st->max=OP.range.max-j;
+        j=static_cast<size_t>(OP.range.min);
+        st->max=static_cast<int>(OP.range.max-j);
         for(i=0;i<j;i++,++str)
         {
-          if(str>strend || (RE_ISTYPE(*str,OP.range.type))==0)break;
+          if(str>strend || (RE_ISTYPE(static_cast<rechar_t>(*str),OP.range.type))==0)break;
         }
         if(i<j)break;
         st->startstr=str;
         if(!minimizing)
         {
-          while(str<strend && (RE_ISTYPE(*str,OP.range.type)) && st->max--!=0)++str;
+          while(str<strend && (RE_ISTYPE(static_cast<rechar_t>(*str),OP.range.type)) && st->max--!=0)++str;
         }else
         {
-          MINSKIP((RE_ISTYPE(*str,OP.range.type)));
+          MINSKIP((RE_ISTYPE(static_cast<rechar_t>(*str),OP.range.type)));
           if(st->max==-1)break;
         }
-        if(OP.range.max==j)continue;
+        if(OP.range.max==static_cast<int>(j))continue;
         st->savestr=str;
         st->pos=op;
         st=stack.pushState();
@@ -2471,23 +2442,23 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       {
         st->op=OP.op;
         minimizing=OP.op==opNotTypeMinRange;
-        j=OP.range.min;
-        st->max=OP.range.max-j;
+        j=static_cast<size_t>(OP.range.min);
+        st->max=static_cast<int>(OP.range.max-j);
         for(i=0;i<j;i++,++str)
         {
-          if(str>strend || (RE_ISTYPE(*str,OP.range.type))!=0)break;
+          if(str>strend || (RE_ISTYPE(static_cast<rechar_t>(*str),OP.range.type))!=0)break;
         }
         if(i<j)break;
         st->startstr=str;
         if(!minimizing)
         {
-          while(str<strend && (RE_ISTYPE(*str,OP.range.type))==0 && st->max--!=0)++str;
+          while(str<strend && (RE_ISTYPE(static_cast<rechar_t>(*str),OP.range.type))==0 && st->max--!=0)++str;
         }else
         {
-          MINSKIP((RE_ISTYPE(*str,OP.range.type))==0);
+          MINSKIP((RE_ISTYPE(static_cast<rechar_t>(*str),OP.range.type))==0);
           if(st->max==-1)break;
         }
-        if(OP.range.max==j)continue;
+        if(OP.range.max==static_cast<int>(j))continue;
         st->savestr=str;
         st->pos=op;
         st=stack.pushState();
@@ -2500,8 +2471,8 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       {
         st->op=OP.op;
         minimizing=OP.op==opBackRefMinRange || OP.op==opNamedRefMinRange;
-        j=OP.range.min;
-        st->max=OP.range.max-j;
+        j=static_cast<size_t>(OP.range.min);
+        st->max=static_cast<int>(OP.range.max-j);
         if(OP.op==opBackRefRange || OP.op==opBackRefMinRange)
         {
           m=&match[OP.range.refindex];
@@ -2530,7 +2501,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
           MINSKIP(strCmp(str,strend,start+m->start,start+m->end));
           if(st->max==-1)break;
         }
-        if(OP.range.max==j)continue;
+        if(OP.range.max==static_cast<int>(j))continue;
         st->savestr=str;
         st->pos=op;
         st=stack.pushState();
@@ -2539,7 +2510,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
       case opBracketRange:
       case opBracketMinRange:
       {
-        if(/*inrangebracket &&*/ OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+        if(/*inrangebracket &&*/ OP.range.bracket.index>=0 && OP.range.bracket.index<static_cast<int>(mi->brSize))
         {
           st->op=opOpenBracket;
           st->pos=OP.range.bracket.pairindex;
@@ -2562,7 +2533,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
           st->savestr=str;
           st=stack.pushState();
         }
-        if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+        if(OP.range.bracket.index>=0 && OP.range.bracket.index<static_cast<int>(mi->brSize))
         {
           match[OP.range.bracket.index].start=
           /*match[OP.range.bracket.index].end=*/(int)(str-start);
@@ -2717,7 +2688,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
           op=ps->pos;
           if(ignoreCase)
           {
-            if(str<strend && RE_TOLOWER(*str)==OP.symbol)
+            if(str<strend && RE_TOLOWER(static_cast<rechar_t>(*str))==OP.symbol)
             {
               ++str;
               ps->savestr=str;
@@ -2745,7 +2716,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
           op=ps->pos;
           if(ignoreCase)
           {
-            if(str<strend && RE_TOLOWER(*str)!=OP.symbol)
+            if(str<strend && RE_TOLOWER(static_cast<rechar_t>(*str))!=OP.symbol)
             {
               ++str;
               ps->savestr=str;
@@ -2771,7 +2742,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
           if(ps->max--==0)continue;
           str=ps->savestr;
           op=ps->pos;
-          if(str<strend && OP.range.symbolclass->GetBit(*str))
+          if(str<strend && OP.range.symbolclass->GetBit(static_cast<rechar_t>(*str)))
           {
             ++str;
             ps->savestr=str;
@@ -2786,7 +2757,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
           if(ps->max--==0)continue;
           str=ps->savestr;
           op=ps->pos;
-          if(str<strend && RE_ISTYPE(*str,OP.range.type))
+          if(str<strend && RE_ISTYPE(static_cast<rechar_t>(*str),OP.range.type))
           {
             ++str;
             ps->savestr=str;
@@ -2801,7 +2772,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
           if(ps->max--==0)continue;
           str=ps->savestr;
           op=ps->pos;
-          if(str<strend && ((RE_ISTYPE(*str,OP.range.type))==0))
+          if(str<strend && ((RE_ISTYPE(static_cast<rechar_t>(*str),OP.range.type))==0))
           {
             ++str;
             ps->savestr=str;
@@ -2853,7 +2824,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
               st->savestr=str;
               st=stack.pushState();
             }
-            if(OP.bracket.index>=0 && OP.bracket.index<mi->brCount)
+            if(OP.bracket.index>=0 && OP.bracket.index<static_cast<int>(mi->brCount))
             {
               match[OP.bracket.index].end=str-start;
             }
@@ -2873,7 +2844,7 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
             ps->forward=0;
             op=ps->pos;
             str=ps->savestr;
-            if(OP.range.bracket.index>=0 && OP.range.bracket.index<mi->brSize)
+            if(OP.range.bracket.index>=0 && OP.range.bracket.index<static_cast<int>(mi->brSize))
             {
               match[OP.range.bracket.index].start=(int)(str-start);
               st->op=opOpenBracket;
@@ -2897,8 +2868,8 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
         }
         case opOpenBracket:
         {
-          j=ps->pos->bracket.index;
-          if(j>=0 && j<mi->brSize)
+          j=static_cast<size_t>(ps->pos->bracket.index);
+          if(j<mi->brSize)
           {
             match[j].start=ps->min;
             match[j].end=ps->max;
@@ -2946,24 +2917,24 @@ inline int RegExp::innerMatch(INPUT_ITER start,INPUT_ITER str,INPUT_ITER strend,
         }
         case opNoReturn:
         {
-          return 0;
+          return false;
         }
 
      }//switch(op)
      break;
     }
   }
-  return 1;
+  return true;
 }
 
 template <typename INPUT_ITER>
-inline int RegExp::Match(INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi)
+inline bool RegExp::Match(INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi)
 {
   return MatchEx(textstart,textstart,textend,mi);
 }
 
 template <typename INPUT_ITER>
-inline int RegExp::MatchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi)
+inline bool RegExp::MatchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi)
 {
   if(haveFirst && !firstptr->GetBit(*textstart))return 0;
   if(minLength!=0 && textend-textstart<minLength)return 0;
@@ -2974,8 +2945,8 @@ inline int RegExp::MatchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER 
     if(textend<textstart)return 0;
     ++textend;
   }
-  int res=innerMatch(datastart,textstart,textend,&mi);
-  if(res==1)
+  bool res=innerMatch(datastart,textstart,textend,&mi);
+  if(res)
   {
     int i;
     SMatch* match=mi.br;
@@ -2992,7 +2963,7 @@ inline int RegExp::MatchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER 
 
 
 template <typename INPUT_ITER>
-inline int RegExp::Match(INPUT_ITER textstart,MatchInfo& mi)
+inline bool RegExp::Match(INPUT_ITER textstart,MatchInfo& mi)
 {
   INPUT_ITER textend=reStrEnd(textstart);
   return Match(textstart,textend,mi);
@@ -3000,11 +2971,11 @@ inline int RegExp::Match(INPUT_ITER textstart,MatchInfo& mi)
 
 
 
-inline int RegExp::Optimize()
+inline bool RegExp::Optimize()
 {
   //int i;
   PREOpCode jumps[MAXDEPTH];
-  int jumpcount=0;
+  size_t jumpcount=0;
   if(haveFirst)return 1;
   firstptr->Reset();
   lastptr->Reset();
@@ -3013,34 +2984,35 @@ inline int RegExp::Optimize()
   minLength=0;
   int mlstackmin[MAXDEPTH];
   int mlstacksave[MAXDEPTH];
-  int mlscnt=0;
+  size_t mlscnt=0;
 
   for(op=code;op;op=op->next)
   {
     if((op->op==opSymbol || op->op==opSymbolIgnoreCase) && (op->next->op==opSymbol || op->next->op==opSymbolIgnoreCase) )
     {
       PREOpCode op2=op->next;
-      int l=2;
+      size_t l=2;
       while(op2->next->op==opSymbol || op2->next->op==opSymbolIgnoreCase)
       {
         op2=op2->next;
         ++l;
       }
       rechar_t* str=new rechar_t[l];
-      int i=l-1;
-      PREOpCode opb=op2;
-      while(opb!=op)
       {
-        str[i]=opb->symbol;
-        --i;
-        opb=opb->prev;
+        size_t i = l - 1;
+        PREOpCode opb = op2;
+        while (opb != op) {
+          str[i] = opb->symbol;
+          --i;
+          opb = opb->prev;
+        }
       }
       str[0]=op->symbol;
       op->op=op->op==opSymbol?opString:opStringIgnoreCase;
-      for(int i=0;i<128;++i)op->str.bmskip[i]=l;
+      for(size_t i=0;i<128;++i)op->str.bmskip[i]=l;
       op->str.str=str;
       op->str.length=l;
-      for(int i=0;i<l-1;++i)
+      for(size_t i=0;i<l-1;++i)
       {
         if(op->str.str[i]<128)
         {
@@ -3108,7 +3080,7 @@ inline int RegExp::Optimize()
         /* no break */
       case opNamedBracket:
       case opOpenBracket:
-        mlstacksave[mlscnt]=minLength;
+        mlstacksave[mlscnt]=static_cast<int>(minLength);
         mlstackmin[mlscnt++]=-1;
         minLength=0;
         continue;
@@ -3120,9 +3092,9 @@ inline int RegExp::Optimize()
           lastOp=0;
           continue;
         }
-        if(mlstackmin[mlscnt-1]!=-1 && mlstackmin[mlscnt-1]<minLength)
+        if(mlstackmin[mlscnt-1]!=-1 && static_cast<size_t>(mlstackmin[mlscnt-1])<minLength)
         {
-          minLength=mlstackmin[mlscnt-1];
+          minLength=static_cast<size_t>(mlstackmin[mlscnt-1]);
         }
 
         switch(op->bracket.pairindex->op)
@@ -3133,18 +3105,18 @@ inline int RegExp::Optimize()
             minLength*=op->range.min;
             break;
         }
-        minLength+=mlstacksave[--mlscnt];
+        minLength+=static_cast<size_t>(mlstacksave[--mlscnt]);
       }continue;
       case opAlternative:
       {
         if(mlstackmin[mlscnt-1]==-1)
         {
-          mlstackmin[mlscnt-1]=minLength;
+          mlstackmin[mlscnt-1]=static_cast<int>(minLength);
         }else
         {
-          if(minLength<mlstackmin[mlscnt-1])
+          if(minLength<static_cast<size_t>(mlstackmin[mlscnt-1]))
           {
-            mlstackmin[mlscnt-1]=minLength;
+            mlstackmin[mlscnt-1]=static_cast<int>(minLength);
           }
         }
         lastOp=0;
@@ -3175,13 +3147,13 @@ inline int RegExp::Optimize()
       case opType:
       {
         //for(i=0;i<256;i++)if(RE_ISTYPE(i,OP.type))first[i]=1;
-        lastptr->addType(OP.type);
+        lastptr->addType(static_cast<unsigned char>(OP.type));
         break;
       }
       case opNotType:
       {
         //for(i=0;i<256;i++)if(!(RE_ISTYPE(i,OP.type)))first[i]=1;
-        lastptr->addNotType(OP.type);
+        lastptr->addNotType(static_cast<unsigned char>(OP.type));
         break;
       }
       case opSymbol:
@@ -3198,13 +3170,13 @@ inline int RegExp::Optimize()
       case opStringIgnoreCase:
       {
         lastptr->SetBit(OP.str.str[OP.str.length-1]);
-        lastptr->SetBit(RE_TOUPPER(OP.str.str[OP.str.length-1]));
+        lastptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.str.str[OP.str.length-1])));
         break;
       }
       case opSymbolIgnoreCase:
       {
         lastptr->SetBit(OP.symbol);
-        lastptr->SetBit(RE_TOUPPER(OP.symbol));
+        lastptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.symbol)));
         break;
       }
       case opSymbolClass:
@@ -3222,7 +3194,7 @@ inline int RegExp::Optimize()
       {
         lastptr->negative=1;
         lastptr->SetBit(OP.symbol);
-        lastptr->SetBit(RE_TOUPPER(OP.symbol));
+        lastptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.symbol)));
         break;
       }
       case opNotSymbolRange:
@@ -3235,7 +3207,7 @@ inline int RegExp::Optimize()
         }
         lastptr->negative=1;
         lastptr->SetBit(OP.range.symbol);
-        lastptr->SetBit(RE_TOUPPER(OP.range.symbol));
+        lastptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.range.symbol)));
         break;
       }
       case opSymbolRange:
@@ -3248,8 +3220,8 @@ inline int RegExp::Optimize()
         }
         if(ignoreCase)
         {
-          lastptr->SetBit(RE_TOLOWER(OP.range.symbol));
-          lastptr->SetBit(RE_TOUPPER(OP.range.symbol));
+          lastptr->SetBit(static_cast<rechar_t>(RE_TOLOWER(OP.range.symbol)));
+          lastptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.range.symbol)));
         }else
         {
           lastptr->SetBit(OP.range.symbol);
@@ -3264,7 +3236,7 @@ inline int RegExp::Optimize()
           haveLast=false;
           break;
         }
-        lastptr->addType(OP.range.type);
+        lastptr->addType(static_cast<unsigned char>(OP.range.type));
         break;
       }
       case opNotTypeRange:
@@ -3275,7 +3247,7 @@ inline int RegExp::Optimize()
           haveLast=false;
           break;
         }
-        lastptr->addNotType(OP.range.type);
+        lastptr->addNotType(static_cast<unsigned char>(OP.range.type));
         break;
       }
       case opClassRange:
@@ -3307,13 +3279,13 @@ inline int RegExp::Optimize()
       case opType:
       {
         //for(i=0;i<256;i++)if(RE_ISTYPE(i,OP.type))first[i]=1;
-        firstptr->addType(OP.type);
+        firstptr->addType(static_cast<unsigned char>(OP.type));
         break;
       }
       case opNotType:
       {
         //for(i=0;i<256;i++)if(!(RE_ISTYPE(i,OP.type)))first[i]=1;
-        firstptr->addNotType(OP.type);
+        firstptr->addNotType(static_cast<unsigned char>(OP.type));
         break;
       }
       case opSymbol:
@@ -3331,14 +3303,14 @@ inline int RegExp::Optimize()
       case opStringIgnoreCase:
       {
         firstptr->SetBit(OP.str.str[0]);
-        firstptr->SetBit(RE_TOUPPER(OP.str.str[0]));
+        firstptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.str.str[0])));
         if(firstOp)firstStr=op;
         break;
       }
       case opSymbolIgnoreCase:
       {
         firstptr->SetBit(OP.symbol);
-        firstptr->SetBit(RE_TOUPPER(OP.symbol));
+        firstptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.symbol)));
         break;
       }
       case opSymbolClass:
@@ -3382,14 +3354,14 @@ inline int RegExp::Optimize()
       }
       case opNotSymbolIgnoreCase:
       {
-        if(firstptr->GetBit(OP.symbol) || firstptr->GetBit(RE_TOUPPER(OP.symbol)))
+        if(firstptr->GetBit(OP.symbol) || firstptr->GetBit(static_cast<rechar_t>(RE_TOUPPER(OP.symbol))))
         {
           return 0;
         }
         firstptr->Reset();
         firstptr->negative=1;
         firstptr->SetBit(OP.symbol);
-        firstptr->SetBit(RE_TOUPPER(OP.symbol));
+        firstptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.symbol)));
         break;
       }
       case opNotSymbolRange:
@@ -3397,21 +3369,21 @@ inline int RegExp::Optimize()
       {
         if(ignoreCase)
         {
-          if(firstptr->GetBit(OP.range.symbol) || firstptr->GetBit(RE_TOUPPER(OP.range.symbol)))
+          if(firstptr->GetBit(OP.range.symbol) || firstptr->GetBit(static_cast<rechar_t>(RE_TOUPPER(OP.range.symbol))))
           {
-            return 0;
+            return false;
           }
         }else
         {
           if(firstptr->GetBit(OP.range.symbol))
           {
-            return 0;
+            return false;
           }
         }
         firstptr->Reset();
         firstptr->negative=1;
         firstptr->SetBit(OP.range.symbol);
-        firstptr->SetBit(RE_TOUPPER(OP.range.symbol));
+        firstptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.range.symbol)));
         if(OP.range.min==0){firstOp=false;continue;}
         break;
       }
@@ -3420,8 +3392,8 @@ inline int RegExp::Optimize()
       {
         if(ignoreCase)
         {
-          firstptr->SetBit(RE_TOLOWER(OP.range.symbol));
-          firstptr->SetBit(RE_TOUPPER(OP.range.symbol));
+          firstptr->SetBit(static_cast<rechar_t>(RE_TOLOWER(OP.range.symbol)));
+          firstptr->SetBit(static_cast<rechar_t>(RE_TOUPPER(OP.range.symbol)));
         }else
         {
           firstptr->SetBit(OP.range.symbol);
@@ -3436,7 +3408,7 @@ inline int RegExp::Optimize()
         {
           if(RE_ISTYPE(i,OP.range.type))first[i]=1;
         }*/
-        firstptr->addType(OP.range.type);
+        firstptr->addType(static_cast<unsigned char>(OP.range.type));
         if(OP.range.min==0){firstOp=false;continue;}
         break;
       }
@@ -3447,7 +3419,7 @@ inline int RegExp::Optimize()
         {
           if(!(RE_ISTYPE(i,OP.range.type)))first[i]=1;
         }*/
-        firstptr->addNotType(OP.range.type);
+        firstptr->addNotType(static_cast<unsigned char>(OP.range.type));
         if(OP.range.min==0){firstOp=false;continue;}
         break;
       }
@@ -3492,22 +3464,22 @@ inline int RegExp::Optimize()
     break;
   }
   if(haveAlt)firstStr=0;
-  haveFirst=1;
-  return 1;
+  haveFirst=true;
+  return true;
 }
 
 #undef OP
 #undef MINSKIP
 
 template <typename INPUT_ITER>
-inline int RegExp::Search(INPUT_ITER textstart,MatchInfo& mi)
+inline bool RegExp::Search(INPUT_ITER textstart,MatchInfo& mi)
 {
   INPUT_ITER textend=reStrEnd(textstart);
   return SearchEx(textstart,textstart,textend,mi);
 }
 
 template <typename INPUT_ITER>
-inline int RegExp::Search(INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi)
+inline bool RegExp::Search(INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi)
 {
   return SearchEx(textstart,textstart,textend,mi);
 }
@@ -3516,9 +3488,9 @@ template <typename INPUT_ITER>
 inline bool RegExp::BMSearch(PREOpCode sop,INPUT_ITER& str,INPUT_ITER end)
 {
   rechar_t* sstr=sop->str.str;
-  int l=sop->str.length-1;
-  int i;
-  int* jtbl=sop->str.bmskip;
+  size_t l=sop->str.length-1;
+  size_t i;
+  size_t* jtbl=sop->str.bmskip;
   if(sop->op==opString)
   {
     while(str<end)
@@ -3527,9 +3499,9 @@ inline bool RegExp::BMSearch(PREOpCode sop,INPUT_ITER& str,INPUT_ITER end)
       {
         if(i==0)return true;
       }
-      if((unsigned)str[l]<128)
+      if(static_cast<unsigned char>(str[l])<128)
       {
-        str+=jtbl[str[l]];
+        str+=jtbl[static_cast<unsigned char>(str[l])];
       }else
       {
         ++str;
@@ -3539,13 +3511,13 @@ inline bool RegExp::BMSearch(PREOpCode sop,INPUT_ITER& str,INPUT_ITER end)
   {
     while(str<end)
     {
-      for(i=l;sstr[i]==RE_TOLOWER(str[i]);--i)
+      for(i=l;sstr[i]==RE_TOLOWER(static_cast<rechar_t>(str[i]));--i)
       {
         if(i==0)return true;
       }
-      if((unsigned)str[l]<128)
+      if(static_cast<unsigned char>(str[l])<128)
       {
-        str+=jtbl[str[l]];
+        str+=jtbl[static_cast<unsigned char>(str[l])];
       }else
       {
         ++str;
@@ -3556,10 +3528,10 @@ inline bool RegExp::BMSearch(PREOpCode sop,INPUT_ITER& str,INPUT_ITER end)
 }
 
 template <typename INPUT_ITER>
-inline int RegExp::SearchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi)
+inline bool RegExp::SearchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER textend,MatchInfo& mi)
 {
   INPUT_ITER str=textstart;
-  if(minLength!=0 && textend-textstart<minLength)return 0;
+  if(minLength!=0 && static_cast<size_t>(textend-textstart)<minLength)return false;
   if(code->bracket.nextalt==0 && code->next->op==opDataStart)
   {
     return innerMatch(datastart,str,textend,&mi);
@@ -3569,20 +3541,20 @@ inline int RegExp::SearchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER
     mi.brCount=1;
     mi.br[0].start=(int)(textend-textstart);
     mi.br[0].end=mi.br[0].start;
-    return 1;
+    return true;
   }
   if(textend-textstart<256 && haveLast)
   {
     --textend;
-    while(textend>=textstart && !lastptr->GetBit(*textend))--textend;
-    if(textend<textstart)return 0;
+    while(textend>=textstart && !lastptr->GetBit(static_cast<rechar_t >(*textend)))--textend;
+    if(textend<textstart)return false;
     ++textend;
   }
-  int res=0;
+  bool res=false;
   if(firstStr)
   {
     do{
-      if(!BMSearch(firstStr,str,textend))return 0;
+      if(!BMSearch(firstStr,str,textend))return false;
       if(0!=(res=innerMatch(datastart,str,textend,&mi)))
       {
         break;
@@ -3593,7 +3565,7 @@ inline int RegExp::SearchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER
   if(haveFirst)
   {
     do{
-      while(!firstptr->GetBit(*str) && str<textend)++str;
+      while(!firstptr->GetBit(static_cast<rechar_t >(*str)) && str<textend)++str;
       if(str<textend && 0!=(res=innerMatch(datastart,str,textend,&mi)))
       {
         break;
@@ -3614,11 +3586,10 @@ inline int RegExp::SearchEx(INPUT_ITER datastart,INPUT_ITER textstart,INPUT_ITER
       ++str;
     }while(str<textend);
   }
-  if(res==1)
+  if(res)
   {
-    int i;
     SMatch* match=mi.br;
-    for(i=0;i<mi.brCount;i++)
+    for(size_t i=0;i<mi.brCount;i++)
     {
       if(match[i].start==-1 || match[i].end==-1 || match[i].start>match[i].end)
       {

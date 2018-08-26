@@ -125,7 +125,7 @@ public:
   FileLocation end;
   Statement():st(stNone){}
   virtual ~Statement(){}
-  virtual void dump(std::string& out){};
+  virtual void dump(std::string& /*out*/){};
   virtual void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)=0;
   template <class T>
   T& as()
@@ -247,7 +247,7 @@ public:
     }
     rangeIncl=true;
   }
-  Expr(FuncDeclStatement* argFunc);
+  explicit Expr(FuncDeclStatement* argFunc);
   ~Expr();
   Symbol getSymbol()
   {
@@ -275,7 +275,7 @@ inline void FuncParam::dump(std::string& out)
 }
 
 
-inline void customformat(kst::FormatBuffer& buf,Expr* expr,int w,int p)
+inline void customformat(kst::FormatBuffer& buf,Expr* expr,int,int)
 {
   if(expr)
   {
@@ -285,7 +285,7 @@ inline void customformat(kst::FormatBuffer& buf,Expr* expr,int w,int p)
   }
 }
 
-inline void customformat(kst::FormatBuffer& buf,ExprList* lst,int w,int p)
+inline void customformat(kst::FormatBuffer& buf,ExprList* lst,int,int)
 {
   if(lst)
   {
@@ -325,7 +325,7 @@ struct ExprStatement:Statement{
     {
       pos=expr->pos;
       if (expr->ns)
-        pos=expr->ns->front().pos;
+        pos=expr->ns->values.front().pos;
       end=expr->end;
     }
   }
@@ -338,7 +338,7 @@ struct ExprStatement:Statement{
     expr->dump(out);
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& /*subStmt*/)
   {
     subExpr.push_back(expr);
   }
@@ -370,7 +370,7 @@ struct ListAssignStatement:Statement{
     lst1->dump(out);out+="=";lst2->dump(out);
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& /*subStmt*/)
   {
     subExpr.insert(subExpr.end(),lst1->begin(),lst1->end());
     subExpr.insert(subExpr.end(),lst2->begin(),lst2->end());
@@ -409,9 +409,9 @@ struct IfStatement:Statement{
     }
     if(elsifList)
     {
-      for(StmtList::iterator it=elsifList->begin(),end=elsifList->end();it!=end;++it)
+      for(auto stptr:*elsifList)
       {
-        IfStatement* ist=(IfStatement*)*it;
+        IfStatement* ist=(IfStatement*)stptr;
         out+="elsif ";
         ist->cond->dump(out);out+="\n";
         ist->thenList->dump(out);
@@ -542,7 +542,7 @@ struct FuncDeclStatement:Statement{
     if(args)delete args;
     if(body)delete body;
   }
-  int argsCount()
+  size_t argsCount()
   {
     return args?args->size():0;
   }
@@ -561,9 +561,9 @@ struct FuncDeclStatement:Statement{
   {
     if(args)
     {
-      for(FuncParamList::iterator it=args->begin(),end=args->end();it!=end;++it)
+      for(auto& fpp:*args)
       {
-        FuncParam& fp=**it;
+        FuncParam& fp=*fpp;
         if(fp.defValue)
         {
           subExpr.push_back(fp.defValue);
@@ -629,7 +629,7 @@ struct VarListStatement:Statement{
     vars->dump(out);
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& /*subExpr*/,std::vector<StmtList*>& /*subStmt*/)
   {
 
   }
@@ -729,7 +729,7 @@ struct ClassMemberDef:Statement{
     }
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& /*subStmt*/)
   {
     if(value)
     {
@@ -753,16 +753,15 @@ struct ClassAttrDef:Statement{
     out+="@";
     lst->dump(out);
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& /*subStmt*/)
   {
     if(lst)
     {
-      for(AttrInstList::iterator it=lst->begin(),end=lst->end();it!=end;++it)
+      for(auto& ai:*lst)
       {
-        AttrInstance& ai=**it;
-        if(ai.value)
+        if(ai->value)
         {
-          subExpr.push_back(ai.value);
+          subExpr.push_back(ai->value);
         }
       }
     }
@@ -807,12 +806,11 @@ struct ClassDefStatement:Statement{
   {
     if(args)
     {
-      for(FuncParamList::iterator it=args->begin(),end=args->end();it!=end;++it)
+      for(auto& fp:*args)
       {
-        FuncParam& fp=**it;
-        if(fp.defValue)
+        if(fp->defValue)
         {
-          subExpr.push_back(fp.defValue);
+          subExpr.push_back(fp->defValue);
         }
       }
     }
@@ -848,9 +846,12 @@ struct NamespaceStatement:Statement{
     }
     out+="end\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& /*subExpr*/,std::vector<StmtList*>& subStmt)
   {
-    if(body)subStmt.push_back(body);
+    if(body)
+    {
+      subStmt.push_back(body);
+    }
   }
 };
 
@@ -918,7 +919,7 @@ struct ThrowStatement:Statement{
     ex->dump(out);
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& /*subStmt*/)
   {
     subExpr.push_back(ex);
   }
@@ -939,7 +940,7 @@ struct NextStatement:Statement{
     }
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& /*subExpr*/,std::vector<StmtList*>& /*subStmt*/)
   {
   }
 
@@ -960,7 +961,7 @@ struct BreakStatement:Statement{
     }
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& /*subExpr*/,std::vector<StmtList*>& /*subStmt*/)
   {
 
   }
@@ -981,7 +982,7 @@ struct RedoStatement:Statement{
     }
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& /*subExpr*/,std::vector<StmtList*>& /*subStmt*/)
   {
 
   }
@@ -1065,9 +1066,8 @@ struct SwitchStatement:Statement{
     if(expr)subExpr.push_back(expr);
     if(casesList)
     {
-      for(SwitchCasesList::iterator it=casesList->begin(),end=casesList->end();it!=end;++it)
+      for(auto& sc:*casesList)
       {
-        SwitchCase& sc=*it;
         if(sc.caseExpr)subExpr.insert(subExpr.end(),sc.caseExpr->begin(),sc.caseExpr->end());
         if(sc.caseBody)subStmt.push_back(sc.caseBody);
       }
@@ -1106,7 +1106,7 @@ struct EnumStatement:Statement{
     }
     out+="\nend\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& /*subStmt*/)
   {
     if(items)subExpr.insert(subExpr.end(),items->begin(),items->end());
   }
@@ -1200,7 +1200,7 @@ struct PropStatement:Statement{
       out+="end\n";
     }
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& /*subExpr*/,std::vector<StmtList*>& subStmt)
   {
     if(getFunc && getFunc->body)
     {
@@ -1236,7 +1236,7 @@ struct AttrDeclStatement:Statement{
     }
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& /*subStmt*/)
   {
     if(value)subExpr.push_back(value);
   }
@@ -1260,7 +1260,7 @@ struct UseStatement:Statement{
     expr->dump(out);
     out+="\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& /*subStmt*/)
   {
     subExpr.push_back(expr);
   }
@@ -1316,9 +1316,9 @@ struct LiterStatement:Statement{
   }
   ~LiterStatement()
   {
-    for(LiterArgsList::iterator it=args->begin(),end=args->end();it!=end;++it)
+    for(auto ptr:*args)
     {
-      delete *it;
+      delete ptr;
     }
     delete args;
     delete body;
@@ -1326,15 +1326,15 @@ struct LiterStatement:Statement{
   void dump(std::string& out)
   {
     out+="liter ";
-    for(LiterArgsList::iterator it=args->begin(),end=args->end();it!=end;++it)
+    for(auto ptr:*args)
     {
-      (*it)->dump(out);
+      ptr->dump(out);
     }
     out+="\n";
     body->dump(out);
     out+="end\n";
   }
-  void getChildData(std::vector<Expr*>& subExpr,std::vector<StmtList*>& subStmt)
+  void getChildData(std::vector<Expr*>& /*subExpr*/,std::vector<StmtList*>& subStmt)
   {
     /*if(args)
     {

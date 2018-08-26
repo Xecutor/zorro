@@ -58,8 +58,8 @@ if($^O eq 'MSWin32')
 {
 %lnch=(
   zorro=>'..\\..\\build\\zorro.exe',
-  lua=>'lua.exe',
-  python=>'python.exe',
+  lua=>'C:\\Work\\cpp\\lua\\lua-5.3.5\\src\\lua.exe',
+  python=>'C:\\Soft\\Python35\\python.exe',
 );
 }else
 {

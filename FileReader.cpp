@@ -1,25 +1,25 @@
 #include "FileReader.hpp"
 
-namespace zorro{
+namespace zorro {
 
 FileRegistry::~FileRegistry()
 {
-  for(EntryVector::iterator it=entries.begin(),end=entries.end();it!=end;++it)
-  {
-    delete *it;
-  }
-  for(std::vector<FileReader*>::iterator it=readers.begin(),end=readers.end();it!=end;++it)
-  {
-    delete *it;
-  }
+    for(auto& entry : entries)
+    {
+        delete entry;
+    }
+    for(auto& reader : readers)
+    {
+        delete reader;
+    }
 }
 
 //FileRegistry freg;
 FileReader* FileRegistry::newReader(Entry* argEntry)
 {
-  FileReader* rv=new FileReader(this,argEntry);
-  readers.push_back(rv);
-  return rv;
+    auto* rv = new FileReader(this, argEntry);
+    readers.push_back(rv);
+    return rv;
 }
 
 }

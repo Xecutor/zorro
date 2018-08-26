@@ -14,13 +14,15 @@
 
 #ifdef _WIN32
 #define NOGDI
-#define WinMain xxxWinMain
 # include <winsock2.h>
-#undef WinMain
 # include <io.h>
 #define lseek _lseek
 #ifndef _SSIZE_T_DEFINED
 typedef long ssize_t;
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4996)
+#endif
 #endif
 #else
 #define O_BINARY 0
@@ -235,7 +237,7 @@ public:
     {
       try{
         Flush();
-      }catch(std::exception& e)
+      }catch(std::exception&)
       {
         flags&=~FLG_WRBUF;
       }
@@ -316,7 +318,8 @@ public:
     Check();
     if(flags&FLG_RDBUF)
     {
-      lseek(fd,-(bufferUsed-bufferPosition),SEEK_CUR);
+      long off = bufferUsed - bufferPosition;
+      lseek(fd,-off,SEEK_CUR);
       flags&=~FLG_RDBUF;
     }
 
@@ -685,5 +688,9 @@ protected:
 };
 
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

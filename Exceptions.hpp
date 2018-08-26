@@ -7,128 +7,146 @@
 #include "FileReader.hpp"
 #include "NameList.hpp"
 
-namespace zorro{
+namespace zorro {
 
-class ZorroException:public std::exception{
+class ZorroException : public std::exception {
 public:
-  ZorroException(){}
-  ZorroException(const char* argMsg):msg(argMsg){}
-  virtual ~ZorroException()throw(){}
-  virtual const char* what()const throw()
-  {
-    return msg.c_str();
-  }
-protected:
-  std::string msg;
-};
+    ZorroException() = default;
 
-class InvalidRule:public ZorroException{
-public:
-  InvalidRule(const char* argRule)
-  {
-    msg="Invalid rule:";
-    msg+=argRule;
-  }
-};
-
-class RuleUndefined:public ZorroException{
-public:
-  RuleUndefined(const char* argRule)
-  {
-    msg="Rule undefined:";
-    msg+=argRule;
-  }
-};
-
-class FileNotFound:public ZorroException{
-public:
-  FileNotFound(const char* fileName)
-  {
-    msg="File not found:";
-    msg+=fileName;
-  }
-};
-
-class SyntaxErrorException:public ZorroException{
-public:
-  FileLocation pos;
-  SyntaxErrorException(const char* argMsg,const FileLocation& argPos):pos(argPos)
-  {
-    msg=argPos.backTrace();
-    msg+=": ";
-    msg+=argMsg;
-  }
-};
-
-
-class UnexpectedSymbol:public SyntaxErrorException{
-public:
-  UnexpectedSymbol(char argChar,const FileLocation& argPos):
-    SyntaxErrorException(FORMAT("Unexpected symbol '%{}'(0x%{x:02})",argChar>=32?argChar:'?',(int)(unsigned char)argChar),argPos)
-  {
-  }
-};
-
-class UnexpectedEndOfLine:public SyntaxErrorException{
-public:
-  UnexpectedEndOfLine(const char* argMsg,const FileLocation& argPos):
-    SyntaxErrorException(FORMAT("Unexpected end of line %{}",argMsg),argPos)
-  {
-  }
-};
-
-class CGException:public SyntaxErrorException{
-public:
-  CGException(const char* argMsg,const FileLocation& argPos):SyntaxErrorException(argMsg,argPos)
-  {
-  }
-};
-
-class UndefinedSymbolException:public SyntaxErrorException{
-public:
-  UndefinedSymbolException(const Symbol& argSym):
-    SyntaxErrorException(FORMAT("Undefined symbol %{}",argSym),argSym.name.pos)
-  {
-  }
-};
-
-class RuntimeException:public ZorroException{
-public:
-  RuntimeException(const char* argMsg,const char* argTrace):ZorroException(argMsg)
-  {
-    if(argTrace && *argTrace)
+    explicit ZorroException(const char* argMsg) : msg(argMsg)
     {
-      msg+=" at\n";
-      msg+=argTrace;
     }
-  }
+
+    ZorroException(const ZorroException&)= default;
+
+    ~ZorroException() noexcept override = default;
+
+    const char* what() const noexcept override
+    {
+        return msg.c_str();
+    }
+
+protected:
+    std::string msg;
 };
 
-class TypeException:public RuntimeException{
+class InvalidRule : public ZorroException {
 public:
-  TypeException(const char* argMsg,const char* argTrace):RuntimeException(argMsg,argTrace){}
+    explicit InvalidRule(const char* argRule)
+    {
+        msg = "Invalid rule:";
+        msg += argRule;
+    }
 };
 
-class OutOfBoundsException:public RuntimeException{
+class RuleUndefined : public ZorroException {
 public:
-  OutOfBoundsException(const char* argMsg,const char* argTrace):RuntimeException(argMsg,argTrace){}
+    explicit RuleUndefined(const char* argRule)
+    {
+        msg = "Rule undefined:";
+        msg += argRule;
+    }
 };
 
-class NoSuchKeyException:public RuntimeException{
+class FileNotFound : public ZorroException {
 public:
-  NoSuchKeyException(const char* argMsg,const char* argTrace):RuntimeException(argMsg,argTrace){}
+    FileNotFound(const char* fileName)
+    {
+        msg = "File not found:";
+        msg += fileName;
+    }
 };
 
-class ArithmeticException:public RuntimeException{
+class SyntaxErrorException : public ZorroException {
 public:
-  ArithmeticException(const char* argMsg,const char* argTrace):RuntimeException(argMsg,argTrace){}
+    FileLocation pos;
+
+    SyntaxErrorException(const char* argMsg, const FileLocation& argPos) : pos(argPos)
+    {
+        msg = argPos.backTrace();
+        msg += ": ";
+        msg += argMsg;
+    }
 };
 
 
+class UnexpectedSymbol : public SyntaxErrorException {
+public:
+    UnexpectedSymbol(char argChar, const FileLocation& argPos) :
+        SyntaxErrorException(
+            FORMAT("Unexpected symbol '%{}'(0x%{x:02})", argChar >= 32 ? argChar : '?', (int) (unsigned char) argChar),
+            argPos)
+    {
+    }
+};
 
-#define ZTHROW(ex_type,pos,...) throw ex_type(FORMAT(__VA_ARGS__),pos)
-#define ZTHROW0(ex_type,...) throw ex_type(FORMAT(__VA_ARGS__))
-#define ZTHROWR(ex_type,vm,...) throw ex_type(FORMAT(__VA_ARGS__),vm->getStackTraceText().c_str())
+class UnexpectedEndOfLine : public SyntaxErrorException {
+public:
+    UnexpectedEndOfLine(const char* argMsg, const FileLocation& argPos) :
+        SyntaxErrorException(FORMAT("Unexpected end of line %{}", argMsg), argPos)
+    {
+    }
+};
+
+class CGException : public SyntaxErrorException {
+public:
+    CGException(const char* argMsg, const FileLocation& argPos) : SyntaxErrorException(argMsg, argPos)
+    {
+    }
+};
+
+class UndefinedSymbolException : public SyntaxErrorException {
+public:
+    explicit UndefinedSymbolException(const Symbol& argSym) :
+        SyntaxErrorException(FORMAT("Undefined symbol %{}", argSym), argSym.name.pos)
+    {
+    }
+};
+
+class RuntimeException : public ZorroException {
+public:
+    RuntimeException(const char* argMsg, const char* argTrace) : ZorroException(argMsg)
+    {
+        if(argTrace && *argTrace)
+        {
+            msg += " at\n";
+            msg += argTrace;
+        }
+    }
+};
+
+class TypeException : public RuntimeException {
+public:
+    TypeException(const char* argMsg, const char* argTrace) : RuntimeException(argMsg, argTrace)
+    {
+    }
+};
+
+class OutOfBoundsException : public RuntimeException {
+public:
+    OutOfBoundsException(const char* argMsg, const char* argTrace) : RuntimeException(argMsg, argTrace)
+    {
+    }
+};
+
+class NoSuchKeyException : public RuntimeException {
+public:
+    NoSuchKeyException(const char* argMsg, const char* argTrace) : RuntimeException(argMsg, argTrace)
+    {
+    }
+};
+
+class ArithmeticException : public RuntimeException {
+public:
+    ArithmeticException(const char* argMsg, const char* argTrace) : RuntimeException(argMsg, argTrace)
+    {
+    }
+};
+
+
+#define ZTHROW(ex_type, pos, ...) throw ex_type(FORMAT(__VA_ARGS__),pos)
+#define ZTHROW0(ex_type, ...) throw ex_type(FORMAT(__VA_ARGS__))
+#define ZTHROWR(ex_type, vm, ...) throw ex_type(FORMAT(__VA_ARGS__),vm->getStackTraceText().c_str())
 
 }
 
