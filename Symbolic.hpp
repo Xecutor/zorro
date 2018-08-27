@@ -328,9 +328,9 @@ struct TypeInfo {
             return self.ts == tsOneOf ? self.arr[idx] : self;
         }
 
-        iterator& operator=(const const_iterator&) = delete;
+        const_iterator& operator=(const const_iterator&) = delete;
 
-        iterator& operator=(const_iterator&&) = delete;
+        const_iterator& operator=(const_iterator&&) = delete;
     };
 
     iterator begin()

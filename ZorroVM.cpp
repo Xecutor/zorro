@@ -2324,7 +2324,7 @@ static bool greaterAnyRef(ZorroVM* vm, const Value* l, const Value* r)
 
 static bool greaterEqAnyRef(ZorroVM* vm, const Value* l, const Value* r)
 {
-    return vm->greaterMatrix[l->vt][r->valueRef->value.vt](vm, l, &r->valueRef->value);
+    return vm->greaterEqMatrix[l->vt][r->valueRef->value.vt](vm, l, &r->valueRef->value);
 }
 
 static bool lessObjAny(ZorroVM* vm, const Value* l, const Value* r)
