@@ -20,14 +20,14 @@ void ZMacroExpander::expandMacro()
     }
 
     ZParser::Rule* argsRule = &p->getRule("argList");
-    auto* ex = p->parseRule<ExprList*>(argsRule);
+    std::unique_ptr<ExprList> ex (p->parseRule<ExprList*>(argsRule));
     if(p->l.getNext().tt != tCRBr)
     {
         throw SyntaxErrorException("Expected ')' at", fname.pos);
     }
     if(ex)
     {
-        for(auto& it : *ex)
+        for(auto& it : ex->values)
         {
             if(!it->isDeepConst())
             {
@@ -36,7 +36,8 @@ void ZMacroExpander::expandMacro()
         }
     }
     Symbol name(p->getValue(fname));
-    name.ns = new NameList;
+    auto ns = std::make_unique<NameList>();
+    name.ns = ns.get();
     name.ns->values.emplace_back(vm->mkZString("MACRO"));
     SymInfo* macro = vm->symbols.getSymbol(name);
     if(!macro)
@@ -44,7 +45,7 @@ void ZMacroExpander::expandMacro()
         throw UndefinedSymbolException(name);
     }
     auto* fi = (FuncInfo*) macro;
-    if(fi->argsCount != (ex ? ex->size() : 0))
+    if(fi->argsCount != (ex ? ex->values.size() : 0))
     {
         throw SyntaxErrorException("Macro args count mismatch", ex->pos);
     }
@@ -52,20 +53,19 @@ void ZMacroExpander::expandMacro()
     if(ex)
     {
         CodeGenerator cg(vm);
-        for(ExprList::iterator it = ex->begin(), end = ex->end(); it != end; ++it)
+        for(auto& it : ex->values)
         {
             Value* arg = vm->ctx.dataStack.push();
             Value argVal;
-            cg.fillConstant(*it, argVal);
+            cg.fillConstant(it.get(), argVal);
             //=StringValue((*it)->val);
             //printf("arg:%s\n",ValueToString(vm,argVal).c_str());
             ZASSIGN(vm, arg, &argVal);
         }
-        delete ex;
     }
     OpCall callOp(0, OpArg(), OpArg(atStack));
     callOp.pos = name.name.pos;
-    vm->pushFrame(&callOp, 0, fi->argsCount);
+    vm->pushFrame(&callOp, nullptr, fi->argsCount);
     vm->ctx.dataStack.pushBulk(fi->localsCount);
     vm->ctx.nextOp = ((FuncInfo*) macro)->entry;
     std::string rv;

@@ -66,7 +66,7 @@ if($^O eq 'MSWin32')
 %lnch=(
   zorro=>'../../build/zorro',
   lua=>'lua',
-  python=>'python',
+  python=>'python3',
 );
 }
 

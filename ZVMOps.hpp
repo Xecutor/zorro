@@ -557,7 +557,7 @@ struct OpCall : OpCallBase {
     void dump(std::string& out)
     {
         char buf[256];
-        snprintf(buf, sizeof(buf), "call %s(%d) -> %s", func.toStr().c_str(), args, dst.toStr().c_str());
+        snprintf(buf, sizeof(buf), "call %s(%u) -> %s", func.toStr().c_str(), args, dst.toStr().c_str());
         out = buf;
     }
 };
@@ -572,7 +572,7 @@ struct OpNamedArgsCall : OpCallBase {
     void dump(std::string& out)
     {
         char buf[256];
-        snprintf(buf, sizeof(buf), "ncall %s(%d) -> %s", func.toStr().c_str(), args, dst.toStr().c_str());
+        snprintf(buf, sizeof(buf), "ncall %s(%u) -> %s", func.toStr().c_str(), args, dst.toStr().c_str());
         out = buf;
     }
 };
@@ -594,7 +594,7 @@ struct OpCallMethod : OpDstBase {
     void dump(std::string& out)
     {
         char buf[256];
-        snprintf(buf, sizeof(buf), "call %s[%d](%d) -> %s", self.toStr().c_str(), methodIdx, args, dst.toStr().c_str());
+        snprintf(buf, sizeof(buf), "call %s[%u](%u) -> %s", self.toStr().c_str(), methodIdx, args, dst.toStr().c_str());
         out = buf;
     }
 };

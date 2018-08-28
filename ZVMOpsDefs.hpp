@@ -152,7 +152,7 @@ struct OpArg {
     inline std::string toStr() const
     {
         char buf[32];
-        snprintf(buf, sizeof(buf), "%s%s[%d]", getArgTypeName(at), isTemporal ? "T" : "", idx);
+        snprintf(buf, sizeof(buf), "%s%s[%u]", getArgTypeName(at), isTemporal ? "T" : "", idx);
         return buf;
     }
 

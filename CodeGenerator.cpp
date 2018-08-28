@@ -430,10 +430,10 @@ void CodeGenerator::getExprType(Expr* e, TypeInfo& info)
             TypeInfo etmp(e->et == etArray ? vtArray : vtSet);
             if(e->lst)
             {
-                for(auto& it : *e->lst)
+                for(auto& it : e->lst->values)
                 {
                     TypeInfo tmp;
-                    getExprType(it, tmp);
+                    getExprType(it.get(), tmp);
                     etmp.addToArr(tmp);
                 }
             }
@@ -445,7 +445,7 @@ void CodeGenerator::getExprType(Expr* e, TypeInfo& info)
             TypeInfo etmp(vtMap);
             if(e->lst)
             {
-                for(auto& it : *e->lst)
+                for(auto& it : e->lst->values)
                 {
                     TypeInfo tmp;
                     getExprType(it->e2, tmp);
@@ -489,13 +489,13 @@ void CodeGenerator::getExprType(Expr* e, TypeInfo& info)
                     if(e->lst)
                     {
                         size_t idx = 0;
-                        for(auto& ait : *e->lst)
+                        for(auto& ait : e->lst->values)
                         {
                             if(idx >= it.symRef.asFunc()->locals.size())
                             {
                                 break;
                             }
-                            getExprType(ait, it.symRef.asFunc()->locals[idx]->tinfo);
+                            getExprType(ait.get(), it.symRef.asFunc()->locals[idx]->tinfo);
                             ++idx;
                         }
                     }
@@ -709,9 +709,9 @@ void CodeGenerator::fillTypes(StmtList* sl)
     {
         return;
     }
-    for(auto& it : *sl)
+    for(auto& it : sl->values)
     {
-        fillTypes(it);
+        fillTypes(it.get());
     }
 }
 
@@ -730,7 +730,7 @@ void CodeGenerator::fillTypes(Statement* stptr)
         {
             auto& est = st.as<ExprStatement>();
             TypeInfo tmp;
-            getExprType(est.expr, tmp);
+            getExprType(est.expr.get(), tmp);
             /*if(est.expr->et==etAssign)
         {
           Expr* e=est.expr;
@@ -780,11 +780,11 @@ void CodeGenerator::fillTypes(Statement* stptr)
         case stListAssign:
         {
             auto& las = st.as<ListAssignStatement>();
-            if(las.lst2->size() == 1)
+            if(las.lst2->values.size() == 1)
             {
-                for(auto it = las.lst1->begin(), end = las.lst1->end(); it != end; ++it)
+                for(auto it = las.lst1->values.begin(), end = las.lst1->values.end(); it != end; ++it)
                 {
-                    Expr aex(etAssign, *it, las.lst2->front());
+                    Expr aex(etAssign, it->get(), las.lst2->values.front().get());
                     TypeInfo tmp;
                     getExprType(&aex, tmp);
                     aex.e1 = nullptr;
@@ -792,10 +792,10 @@ void CodeGenerator::fillTypes(Statement* stptr)
                 }
             } else
             {
-                for(auto it1 = las.lst1->begin(), end1 = las.lst1->end(), it2 = las.lst2->begin(), end2 = las.lst2->end();
+                for(auto it1 = las.lst1->values.begin(), end1 = las.lst1->values.end(), it2 = las.lst2->values.begin(), end2 = las.lst2->values.end();
                     it1 != end1 && it2 != end2; ++it1, ++it2)
                 {
-                    Expr aex(etAssign, *it1, *it2);
+                    Expr aex(etAssign, it1->get(), it2->get());
                     TypeInfo tmp;
                     getExprType(&aex, tmp);
                     aex.e1 = nullptr;
@@ -854,7 +854,7 @@ void CodeGenerator::fillTypes(Statement* stptr)
             auto* fi = (FuncInfo*) si->currentScope;
             if(rs.expr)
             {
-                getExprType(rs.expr, fi->rvtype);
+                getExprType(rs.expr.get(), fi->rvtype);
             } else
             {
                 fi->rvtype.merge(vtNil);
@@ -969,9 +969,9 @@ void CodeGenerator::fillTypes(Statement* stptr)
                 SymInfo* sym = si->getSymbol(tcs.var);
                 if(sym)
                 {
-                    for(auto& it : *tcs.exList)
+                    for(auto& it : tcs.exList->values)
                     {
-                        getExprType(it, sym->tinfo);
+                        getExprType(it.get(), sym->tinfo);
                     }
                 }
             }
@@ -1005,7 +1005,7 @@ void CodeGenerator::fillTypes(Statement* stptr)
             }
             if(es.items)
             {
-                for(auto& item : *es.items)
+                for(auto& item : es.items->values)
                 {
                     Expr& e = *item;
                     if(e.et == etVar)
@@ -1106,7 +1106,7 @@ void CodeGenerator::generateMacro(const Name& name, FuncParamList* args, StmtLis
     OpPair fp(FileLocation(), vm);
     if(args)
     {
-        for(auto& arg : *args)
+        for(auto& arg : args->values)
         {
             si->registerArg(*arg);
         }
@@ -1135,7 +1135,7 @@ void CodeGenerator::fillNames(StmtList* sl, bool deep)
     {
         return;
     }
-    for(auto& it : *sl)
+    for(auto& it : sl->values)
     {
         Statement& st = *it;
         switch(st.st)
@@ -1283,7 +1283,7 @@ void CodeGenerator::fillNames(StmtList* sl, bool deep)
                 si->registerScopedGlobal(new SymInfo(est.name, sytConstant));
                 if(est.items)
                 {
-                    for(auto& exprPtr:*est.items)
+                    for(auto& exprPtr:est.items->values)
                     {
                         Expr& ex = *exprPtr;
                         Name nm = ex.et == etVar ? ex.getSymbol().name : ex.e1->getSymbol().name;
@@ -1304,7 +1304,7 @@ void CodeGenerator::fillClassNames(StmtList* sl)
     {
         return;
     }
-    for(auto& it : *sl)
+    for(auto& it : sl->values)
     {
         Statement& st = *it;
         switch(st.st)
@@ -1407,7 +1407,7 @@ CodeGenerator::OpPair CodeGenerator::generateStmtList(StmtList* sl)
     {
         return op;
     }
-    for(auto& it : *sl)
+    for(auto& it : sl->values)
     {
         if(interruptedFlow)
         {
@@ -1530,7 +1530,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
         {
             ExprContext ec(si);
             size_t tcnt = si->global.acquiredTemporals.size();
-            op += generateExpr(st.as<ExprStatement>().expr, ec);
+            op += generateExpr(st.as<ExprStatement>().expr.get(), ec);
             if(si->global.acquiredTemporals.size() != tcnt)
             {
                 DPRINT("unreleased temporals after expr at %s\n", st.pos.backTrace().c_str());
@@ -1540,20 +1540,20 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
         case stListAssign:
         {
             auto& las = st.as<ListAssignStatement>();
-            bool oneOnRight = las.lst2->size() == 1;
-            if(las.lst1->size() != las.lst2->size() && !oneOnRight)
+            bool oneOnRight = las.lst2->values.size() == 1;
+            if(las.lst1->values.size() != las.lst2->values.size() && !oneOnRight)
             {
                 throw CGException("List assign sizes do not match", st.pos);
             }
 
             ExprContext ec(si);
-            for(auto& it : *las.lst2)
+            for(auto& it : las.lst2->values)
             {
                 ec.mkTmpDst();
-                op += generateExpr(it, ec);
+                op += generateExpr(it.get(), ec);
             }
             size_t idx = 0;
-            for(auto& it : *las.lst1)
+            for(auto& it : las.lst1->values)
             {
                 OpArg src;
                 if(oneOnRight)
@@ -1563,12 +1563,12 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                 {
                     src = OpArg(atLocal, ec.tmps[idx++]).tmp();
                 }
-                if(isSimple(it))
+                if(isSimple(it.get()))
                 {
-                    op += OpPair(st.pos, vm, new OpAssign(getArgType(it, true), src, atNul));
+                    op += OpPair(st.pos, vm, new OpAssign(getArgType(it.get(), true), src, atNul));
                 } else
                 {
-                    Expr* e1 = it;
+                    Expr* e1 = it.get();
                     if(e1->et == etIndex || e1->et == etProp || e1->et == etKey)
                     {
                         Expr* earr = e1->e1;
@@ -1594,7 +1594,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                     {
                         ExprContext ec2(si);
                         OpArg dst = ec2.mkTmpDst();
-                        op += generateExpr(it, ec2.setLvalue());
+                        op += generateExpr(it.get(), ec2.setLvalue());
                         op += OpPair(st.pos, vm, new OpAssign(dst.tmp(), src, atNul));
                     }
                 }
@@ -1680,10 +1680,10 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                     index_type acnt = 0;
                     if(p->args)
                     {
-                        for(auto& arg:*p->args)
+                        for(auto& arg:p->args->values)
                         {
                             ExprContext ec(si, atStack);
-                            fp += generateExpr(arg, ec);
+                            fp += generateExpr(arg.get(), ec);
                             ++acnt;
                         }
                     }
@@ -1697,7 +1697,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                     fp += OpPair(arg.name.pos, vm,
                                  new OpAssign(OpArg(atMember, arg.memIdx), OpArg(atLocal, arg.argIdx), OpArg()));
                 }
-                for(auto& cstptr:*currentClass->body)
+                for(auto& cstptr:currentClass->body->values)
                 {
                     auto& cst = *cstptr;
                     if(cst.st == stClassMemberDef)
@@ -1804,7 +1804,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
             op += generateStmtList(ifst.thenList);
             if(ifst.elsifList)
             {
-                for(auto& eit : *ifst.elsifList)
+                for(auto& eit : ifst.elsifList->values)
                 {
                     IfStatement& elsif = (*eit).as<IfStatement>();
                     ExprContext ec(si);
@@ -1938,14 +1938,26 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                 forInit->next = *body.first;
                 forCor->next = *body.first;
                 op += body;
-                op.fixLast(forStep);
+                if(op.cannotBeFixed() && blk->nexts.empty())
+                {
+                    delete forStep;
+                    forStep = nullptr;
+                }
+                else
+                {
+                    op.fixLast(forStep);
+                }
             } else
             {
                 forInit->next = forStep;
                 forCor->next = forStep;
                 forStep->next = forStep;
             }
-            op.setLast(forCor->endOp = forInit->endOp = forStep->endOp = new OpAssign(temp, nil, atNul));
+            op.setLast(forCor->endOp = forInit->endOp = new OpAssign(temp, nil, atNul));
+            if(forStep)
+            {
+                forStep->endOp = forCor->endOp;
+            }
             for(auto& next : blk->nexts)
             {
                 *next = forStep;
@@ -2029,7 +2041,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
             BlockInfo* blk = si->getBlock(bst.id);
             if(blk == nullptr)
             {
-                throw CGException("break not in loop", st.pos);
+                throw CGException("break not in the loop", st.pos);
             }
             for(int i = 0; i < blk->triesEntered; ++i)
             {
@@ -2073,7 +2085,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
           throw CGException("This function cannot return value",st.pos);
         }*/
                 ExprContext ec(si);
-                OpArg res = genArgExpr(op, ret.expr, ec);
+                OpArg res = genArgExpr(op, ret.expr.get(), ec);
                 //op+=generateExpr(ret.expr,ec);
                 op += OpPair(st.pos, vm, new OpReturn(res, ret.expr->et == etRef));
             } else
@@ -2093,7 +2105,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
             }
             //FuncInfo* fi=(FuncInfo*)si->currentScope;
             ExprContext ec(si);
-            OpArg res = genArgExpr(op, ret.expr, ec);
+            OpArg res = genArgExpr(op, ret.expr.get(), ec);
             OpCondJump* jmp;
             op += jmp = new OpCondJump(ec.dst);
             jmp->pos = ret.expr->pos;
@@ -2115,7 +2127,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
         ec.mkTmpDst();
         op+=generateExpr(yield.expr,ec);*/
                 ExprContext ec(si);
-                OpArg dst = genArgExpr(op, yield.expr, ec);
+                OpArg dst = genArgExpr(op, yield.expr.get(), ec);
                 op += OpPair(st.pos, vm, new OpYield(dst, yield.expr->et == etRef));
             } else
             {
@@ -2179,7 +2191,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                 FuncParamList* args = cds.args;
                 if(args)
                 {
-                    for(auto& arg : *args)
+                    for(auto& arg : args->values)
                     {
                         SymInfo* sym = ci->symMap.findSymbol(*arg);
                         if(sym && sym->st == sytClassMember && ((ClassMember*) sym)->owningClass == ci)
@@ -2208,12 +2220,12 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                     {
                         if(p->args)
                         {
-                            for(auto& arg:*p->args)
+                            for(auto& arg:p->args->values)
                             {
                                 ExprContext ec(si, atStack);
                                 try
                                 {
-                                    fp += generateExpr(arg, ec);
+                                    fp += generateExpr(arg.get(), ec);
                                 }
                                 catch(...)
                                 {
@@ -2237,7 +2249,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                                          new OpAssign(OpArg(atMember, it.memIdx), OpArg(atLocal, it.argIdx),
                                                       OpArg()));
                         }
-                        for(auto& sit : *currentClass->body)
+                        for(auto& sit : currentClass->body->values)
                         {
                             Statement& cst = *sit;
                             if(cst.st == stClassMemberDef)
@@ -2340,7 +2352,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
             std::vector<ClassInfo*> exClasses;
             if(tc.exList)
             {
-                for(auto& it : *tc.exList)
+                for(auto& it : tc.exList->values)
                 {
                     SymInfo* exClass = si->getSymbol(it->getSymbol());
                     if(!exClass)
@@ -2407,9 +2419,9 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
             si->globals[eidx] = MapValue(m, true);
             if(est.items)
             {
-                for(auto it = est.items->begin(), end = est.items->end(); it != end; ++it)
+                for(auto& it : est.items->values)
                 {
-                    Expr& ex = **it;
+                    Expr& ex = *it;
                     if(!(ex.et == etVar || (est.bitEnum && ex.et == etAssign)))
                     {
                         if(ex.et == etAssign)
@@ -2495,14 +2507,14 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                     {
                         if(def)
                         {
-                            throw CGException("Duplicate default case", def->caseBody->front()->pos);
+                            throw CGException("Duplicate default case", def->caseBody->values.front()->pos);
                         }
                         def = &it;
                         continue;
                     }
-                    for(auto cit = it.caseExpr->begin(), cend = it.caseExpr->end(); cit != cend; ++cit)
+                    for(auto cit = it.caseExpr->values.begin(), cend = it.caseExpr->values.end(); cit != cend; ++cit)
                     {
-                        Expr* ex = *cit;
+                        Expr* ex = cit->get();
                         if((allstr || allint) && fillConstant(ex, val))
                         {
                             if(allint && val.vt != vtInt)
@@ -2726,11 +2738,11 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                 }
                 OpPair body = generateStmtList(it->caseBody);
 
-                for(auto ex : *it->caseExpr)
+                for(auto& ex : it->caseExpr->values)
                 {
                     ExprContext ec(si);
                     OpPair caseOp(ex->pos, vm);
-                    OpArg dst = genArgExpr(caseOp, ex, ec);
+                    OpArg dst = genArgExpr(caseOp, ex.get(), ec);
                     OpJumpBase* jmp;
                     if(sst.expr)
                     {
@@ -2807,7 +2819,7 @@ void CodeGenerator::generateStmt(OpPair& op, Statement& st)
                 MethodInfo* smi = si->enterMethod(pst.setFunc->name);
                 ScopeGuard sg(si);
                 p->setMethod = (MethodInfo*) si->globals[smi->index].func;
-                si->registerArg(*pst.setFunc->args->front());
+                si->registerArg(*pst.setFunc->args->values.front());
                 si->registerLocalVar(selfName);
                 //int ridx=si->registerLocalVar(result);
                 OpPair body = generateStmtList(pst.setFunc->body);
@@ -2961,7 +2973,7 @@ CodeGenerator::OpPair CodeGenerator::genArgs(OpPair& fp, FuncParamList* args, bo
     OpPair argOps(FileLocation(), vm);
     if(args)
     {
-        for(auto ait = args->begin(), aend = args->end(); ait != aend; ++ait)
+        for(auto ait = args->values.begin(), aend = args->values.end(); ait != aend; ++ait)
         {
             FuncParam& p = **ait;
             size_t aidx = SymInfo::invalidIndexValue;
@@ -2998,7 +3010,7 @@ CodeGenerator::OpPair CodeGenerator::genArgs(OpPair& fp, FuncParamList* args, bo
                 OpPair op(p.defValue->pos, vm);
                 OpJumpBase* jmp = new OpJumpIfInited(ec.dst, nullptr);
                 op += jmp;
-                op += generateExpr(p.defValue, ec);
+                op += generateExpr(p.defValue.get(), ec);
                 fi->defValEntries.push_back(*op.first);
                 op.addFix(jmp->elseOp);
                 argOps += op;
@@ -3006,7 +3018,7 @@ CodeGenerator::OpPair CodeGenerator::genArgs(OpPair& fp, FuncParamList* args, bo
             {
                 if(p.pt != FuncParam::ptNormal)
                 {
-                    if(ait != --args->end())
+                    if(ait != --args->values.end())
                     {
                         fi->defValEntries.clear();
                         throw CGException("Varargs/namedargs parameter can only be last", p.pos);
@@ -3462,10 +3474,10 @@ bool CodeGenerator::fillConstant(Expr* ex, Value& val)
         {
             val = ArrayValue(vm->allocZArray());
             ZArray& za = *val.arr;
-            for(auto& it : *ex->lst)
+            for(auto& it : ex->lst->values)
             {
                 Value arrVal;
-                if(fillConstant(it, arrVal))
+                if(fillConstant(it.get(), arrVal))
                 {
                     za.pushAndRef(arrVal);
                 }
@@ -3560,9 +3572,9 @@ void CodeGenerator::gatherNumArgs(Expr* expr, std::vector<size_t>& args)
         }
         if(expr->lst)
         {
-            for(auto& it : *expr->lst)
+            for(auto& it : expr->lst->values)
             {
-                gatherNumArgs(it, args);
+                gatherNumArgs(it.get(), args);
             }
         }
     }
@@ -4081,7 +4093,7 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             std::vector<NamedArgInfo> namedArgs;
             if(expr->lst)
             {
-                for(auto arg : *expr->lst)
+                for(auto& arg : expr->lst->values)
                 {
                     if(arg->et == etPair)
                     {
@@ -4109,7 +4121,7 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
                     } else
                     {
                         ExprContext ec3(si, atStack);
-                        op += generateExpr(arg, ec3);
+                        op += generateExpr(arg.get(), ec3);
                         ++cnt;
                     }
                 }
@@ -4239,9 +4251,9 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             bool allConst = false;
             if(expr->lst)
             {
-                for(auto& it : *expr->lst)
+                for(auto& it : expr->lst->values)
                 {
-                    if(isConstant(it))
+                    if(isConstant(it.get()))
                     {
                         haveConst = true;
                     } else
@@ -4254,13 +4266,13 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
                     arr.at = atGlobal;
                     arr.idx = si->registerArray();
                     ZArray* za = si->globals[arr.idx].arr;
-                    size_t cnt = expr->lst ? expr->lst->size() : 0;
+                    size_t cnt = expr->lst ? expr->lst->values.size() : 0;
                     za->resize(cnt);
                     size_t i = 0;
-                    for(auto it = expr->lst->begin(), end = expr->lst->end(); it != end; ++it, ++i)
+                    for(auto it = expr->lst->values.begin(), end = expr->lst->values.end(); it != end; ++it, ++i)
                     {
                         Value& item = za->getItemRef(i);
-                        if(fillConstant(*it, item))
+                        if(fillConstant(it->get(), item))
                         {
                             if(ZISREFTYPE(&item))
                             {
@@ -4270,15 +4282,15 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
                         } else
                         {
                             allConst = false;
-                            init.emplace_back(i, *it);
+                            init.emplace_back(i, it->get());
                         }
                     }
                 } else
                 {
                     size_t i = 0;
-                    for(auto it = expr->lst->begin(), end = expr->lst->end(); it != end; ++it, ++i)
+                    for(auto it = expr->lst->values.begin(), end = expr->lst->values.end(); it != end; ++it, ++i)
                     {
-                        init.emplace_back(i, *it);
+                        init.emplace_back(i, it->get());
                     }
                 }
             }
@@ -4309,9 +4321,9 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             bool haveNonConst = false;
             if(expr->lst)
             {
-                for(auto& it : *expr->lst)
+                for(auto& it : expr->lst->values)
                 {
-                    if(!isConstant(it))
+                    if(!isConstant(it.get()))
                     {
                         haveNonConst = true;
                         break;
@@ -4319,16 +4331,16 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
                 }
                 if(haveNonConst)
                 {
-                    for(auto& it : *expr->lst)
+                    for(auto& it : expr->lst->values)
                     {
-                        init.push_back(MapInitPair(it->e1, it->e2));
+                        init.emplace_back(it->e1, it->e2);
                     }
                 } else
                 {
                     map.at = atGlobal;
                     map.idx = si->registerMap();
                     ZMap* zm = si->globals[map.idx].map;
-                    for(auto& it : *expr->lst)
+                    for(auto& it : expr->lst->values)
                     {
                         Expr* key = it->e1;
                         Expr* item = it->e2;
@@ -4368,9 +4380,9 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             bool haveAllConst = true;
             if(expr->lst)
             {
-                for(auto& it : *expr->lst)
+                for(auto& it : expr->lst->values)
                 {
-                    if(!isConstant(it))
+                    if(!isConstant(it.get()))
                     {
                         haveAllConst = false;
                         break;
@@ -4381,10 +4393,10 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
                     set.at = atGlobal;
                     set.idx = si->registerSet();
                     ZSet* zs = si->globals[set.idx].set;
-                    for(auto& it : *expr->lst)
+                    for(auto& it : expr->lst->values)
                     {
                         Value val = NilValue;
-                        fillConstant(it, val);
+                        fillConstant(it.get(), val);
                         zs->insert(val);
                     }
                 }
@@ -4402,11 +4414,11 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             OpPair op = OpPair(expr->pos, vm, new OpMakeSet(set, dst));
             if(expr->lst && !haveAllConst)
             {
-                for(auto& it : *expr->lst)
+                for(auto& it : expr->lst->values)
                 {
                     OpArg item;
                     ExprContext ec2(si);
-                    item = genArgExpr(op, it, ec2);
+                    item = genArgExpr(op, it.get(), ec2);
                     op += new OpInitSetItem(dst, item);
                 }
             }
@@ -4500,8 +4512,8 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             if(expr->exprFunc)
             {
                 std::vector<size_t> argIndexes;
-                auto& rs = fds.body->front()->as<ReturnStatement>();
-                gatherNumArgs(rs.expr, argIndexes);
+                auto& rs = fds.body->values.front()->as<ReturnStatement>();
+                gatherNumArgs(rs.expr.get(), argIndexes);
                 if(!argIndexes.empty())
                 {
                     if(fds.args)
@@ -4631,31 +4643,31 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             if(!expr->e1)
             {
                 ExprList& lst = *expr->lst;
-                if((int) lst.size() < haveWidth + havePrec + 1)
+                if((int) lst.values.size() < haveWidth + havePrec + 1)
                 {
                     throw CGException("not enough arguments for format expression", expr->pos);
                 }
-                auto it = lst.begin(), end = lst.end();
+                auto it = lst.values.begin(), end = lst.values.end();
                 if(haveWidth)
                 {
-                    width = genArgExpr(op, *it, ec2);
+                    width = genArgExpr(op, it->get(), ec2);
                     ++it;
                 }
                 if(havePrec)
                 {
-                    prec = genArgExpr(op, *it, ec2);
+                    prec = genArgExpr(op, it->get(), ec2);
                     ++it;
                 }
                 if(++it != end)
                 {
                     --it;
-                    extra = genArgExpr(op, *it, ec2);
+                    extra = genArgExpr(op, it->get(), ec2);
                     ++it;
                 } else
                 {
                     --it;
                 }
-                src = genArgExpr(op, *it, ec2);
+                src = genArgExpr(op, it->get(), ec2);
             } else
             {
                 src = genArgExpr(op, expr->e1, ec2);
@@ -4667,14 +4679,14 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
         case etCombine:
         {
             ExprList& lst = *expr->lst;
-            size_t count = lst.size();
+            size_t count = lst.values.size();
             auto* args = new OpArg[count];
             int idx = 0;
             ExprContext ec2(si);
             OpPair op(expr->pos, vm);
-            for(auto& it : lst)
+            for(auto& it : lst.values)
             {
-                args[idx++] = genArgExpr(op, it, ec2);
+                args[idx++] = genArgExpr(op, it.get(), ec2);
             }
             op += new OpCombine(args, count, ec.dst);
             return op;
@@ -4793,7 +4805,7 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             op += forStep;
             //si->enterBlock(Name(),forStep);
             OpPair opBody(expr->pos, vm);
-            for(auto opExpr : *expr->lst)
+            for(auto& opExpr : expr->lst->values)
             {
                 switch(opExpr->et)
                 {
@@ -4848,14 +4860,14 @@ CodeGenerator::OpPair CodeGenerator::generateExpr(Expr* expr, ExprContext& ec)
             auto ait = li->markers.begin();
             if(ait->lt == ltString)
             {
-                op += generateExpr(*++(expr->lst->begin()), ec2);
+                op += generateExpr((++expr->lst->values.begin())->get(), ec2);
             } else
             {
-                for(auto it = expr->lst->begin(), end = expr->lst->end(); it != end; ++it)
+                for(auto it = expr->lst->values.begin(), end = expr->lst->values.end(); it != end; ++it)
                 {
-                    Expr* e1 = *it;
+                    Expr* e1 = it->get();
                     ++it;
-                    Expr* e2 = it != end ? *it : 0;
+                    Expr* e2 = it != end ? it->get() : nullptr;
                     if(e2)
                     {
                         while(ait->marker.val != e2->val)

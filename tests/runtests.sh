@@ -1,6 +1,7 @@
 #!/bin/bash
 function run()
 {
+  #LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/7/libasan.so 
   ../build/zorro $1.zs >last.txt
   diff -q $1.ok last.txt
   if [ $? != 0 ];then

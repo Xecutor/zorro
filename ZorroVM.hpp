@@ -457,7 +457,7 @@ public:
         //reg1=NilValue;
         if(assignMatrix[vtNil][src.vt])
         {
-            assignMatrix[vtNil][src.vt](this, &result, &src, 0);
+            assignMatrix[vtNil][src.vt](this, &result, &src, nullptr);
         } else
         {
             result = src;

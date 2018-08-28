@@ -229,20 +229,20 @@ LiterInfo* SymbolsInfo::getLiter(ExprList* lst)
     ScopeSym* ptr = currentScope;
     LiterType lt;
     ZString* mrk;
-    if(lst->front()->et == etVar)
+    if(lst->values.front()->et == etVar)
     {
         lt = ltString;
-        mrk = lst->front()->val.get();
+        mrk = lst->values.front()->val.get();
     } else
     {
-        if(lst->front()->et == etInt)
+        if(lst->values.front()->et == etInt)
         {
             lt = ltInt;
         } else
         {
             lt = ltDouble;
         }
-        mrk = (*(++lst->begin()))->val.get();
+        mrk = lst->getSecond()->val.get();
     }
     while(ptr)
     {
@@ -252,7 +252,7 @@ LiterInfo* SymbolsInfo::getLiter(ExprList* lst)
             ScopeSym::LiterList& ll = **llptr;
             for(auto& it : ll)
             {
-                auto eit = lst->begin();
+                auto eit = lst->values.begin();
                 if(it->markers.front().lt == ltString)
                 {
                     if(lt != ltString)
@@ -264,7 +264,7 @@ LiterInfo* SymbolsInfo::getLiter(ExprList* lst)
                 bool failed = false;
                 for(auto& la : it->markers)
                 {
-                    if(eit == lst->end())
+                    if(eit == lst->values.end())
                     {
                         if(la.optional)
                         {
@@ -282,7 +282,7 @@ LiterInfo* SymbolsInfo::getLiter(ExprList* lst)
                         break;
                     }
                     ++eit;//skip num
-                    if(eit == lst->end())
+                    if(eit == lst->values.end())
                     {
                         failed = la.marker.val;
                         break;
@@ -298,12 +298,12 @@ LiterInfo* SymbolsInfo::getLiter(ExprList* lst)
                             break;
                         }
                     }
-                    if(eit != lst->end())
+                    if(eit != lst->values.end())
                     {
                         ++eit;
                     }//skip marker
                 }
-                if(!failed && eit == lst->end())
+                if(!failed && eit == lst->values.end())
                 {
                     return it;
                 }

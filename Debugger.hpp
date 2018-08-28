@@ -21,6 +21,8 @@ public:
 
     std::string getCurrentLine();
 
+    bool eval(const std::string& exprStr, Value& res, std::string& err);
+
 protected:
     ZorroVM* vm;
     StmtList* tree;

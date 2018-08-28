@@ -318,7 +318,7 @@ public:
     Check();
     if(flags&FLG_RDBUF)
     {
-      long off = bufferUsed - bufferPosition;
+      long off = bufferUsed-bufferPosition;
       lseek(fd,-off,SEEK_CUR);
       flags&=~FLG_RDBUF;
     }

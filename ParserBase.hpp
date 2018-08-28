@@ -32,37 +32,38 @@ public:
         };
 
         RuleEntry() :
-            isTerm(true), isPushed(true), isReturnOnError(false), isPrioReset(false), isPointOfNoReturn(false),
-            isOptional(false), t(0)
+                isTerm(true), isPushed(true), isReturnOnError(false), isPrioReset(false), isPointOfNoReturn(false),
+                isOptional(false), t(0)
         {
         }
 
         RuleEntry(int argT) :
-            isTerm(true), isPushed(true), isReturnOnError(false), isPrioReset(false), isPointOfNoReturn(false),
-            isOptional(false), t(argT)
+                isTerm(true), isPushed(true), isReturnOnError(false), isPrioReset(false), isPointOfNoReturn(false),
+                isOptional(false), t(argT)
         {
         }
 
         RuleEntry(Rule& argNt) :
-            isTerm(false), isPushed(true), isReturnOnError(false), isPrioReset(false), isPointOfNoReturn(false),
-            isOptional(false), nt(&argNt)
+                isTerm(false), isPushed(true), isReturnOnError(false), isPrioReset(false), isPointOfNoReturn(false),
+                isOptional(false), nt(&argNt)
         {
         }
 
         RuleEntry(Rule* argNt) :
-            isTerm(false), isPushed(true), isReturnOnError(false), isPrioReset(false), isPointOfNoReturn(false),
-            isOptional(false), nt(argNt)
+                isTerm(false), isPushed(true), isReturnOnError(false), isPrioReset(false), isPointOfNoReturn(false),
+                isOptional(false), nt(argNt)
         {
         }
 
         RuleEntry(const RuleEntry& argRe) : isTerm(argRe.isTerm), isPushed(argRe.isPushed),
-            isReturnOnError(argRe.isReturnOnError), isPrioReset(argRe.isPrioReset),
-            isPointOfNoReturn(argRe.isPointOfNoReturn), isOptional(argRe.isOptional)
+                                            isReturnOnError(argRe.isReturnOnError), isPrioReset(argRe.isPrioReset),
+                                            isPointOfNoReturn(argRe.isPointOfNoReturn), isOptional(argRe.isOptional)
         {
             if(isTerm)
             {
                 t = argRe.t;
-            } else
+            }
+            else
             {
                 nt = argRe.nt;
             }
@@ -115,7 +116,7 @@ public:
         template<class T>
         void assign(const T& t)
         {
-            assert(sizeof(t) <= ImplType::MaxDataSize);
+            static_assert(sizeof(t) <= ImplType::MaxDataSize, "Data too big for a buffer");
             new(buf)T(t);
             destructor = DHelper<T>::destroy;
             owned = true;
@@ -193,7 +194,8 @@ public:
             if(!last)
             {
                 last = data;
-            } else
+            }
+            else
             {
                 last++;
             }
@@ -280,18 +282,18 @@ public:
         RuleHandlerBase* handler;
 
         Sequence(const std::string& argName) :
-            name(argName), prio(0), left(true), binary(false), alt(-1), compatibleAlt(-1), handler(0)
+                name(argName), prio(0), left(true), binary(false), alt(-1), compatibleAlt(-1), handler(0)
         {
         }
 
         Sequence(const std::string& argName, int argPrio, bool argLeft = true) :
-            name(argName), prio(argPrio), left(argLeft), binary(true), alt(-1), compatibleAlt(-1), handler(0)
+                name(argName), prio(argPrio), left(argLeft), binary(true), alt(-1), compatibleAlt(-1), handler(0)
         {
         }
 
         Sequence(const Sequence& argOther) :
-            name(argOther.name), prio(argOther.prio), left(argOther.left), binary(argOther.binary),
-            alt(argOther.alt), compatibleAlt(argOther.compatibleAlt), seq(argOther.seq), handler(argOther.handler)
+                name(argOther.name), prio(argOther.prio), left(argOther.left), binary(argOther.binary),
+                alt(argOther.alt), compatibleAlt(argOther.compatibleAlt), seq(argOther.seq), handler(argOther.handler)
         {
             const_cast<Sequence&>(argOther).handler = 0;
         }
@@ -471,7 +473,7 @@ public:
         void handleRule(DataStack& stack, RuleEntry re)
         {
             stack.replace(6, (p->*method)(ARG(-5, A1), ARG(-4, A2), ARG(-3, A3), ARG(-2, A4), ARG(-1, A5), ARG(0, A6)),
-                          re);
+                    re);
         }
     };
 
@@ -488,7 +490,7 @@ public:
         void handleRule(DataStack& stack, RuleEntry re)
         {
             stack.replace(7, (p->*method)(ARG(-6, A1), ARG(-5, A2), ARG(-4, A3), ARG(-3, A4), ARG(-2, A5), ARG(-1, A6),
-                                          ARG(0, A7)), re);
+                    ARG(0, A7)), re);
         }
     };
 
@@ -530,12 +532,12 @@ public:
         bool isLeft;
 
         SeqInfo(const char* argName, const char* argRule) :
-            name(argName), rule(argRule), prio(0), isBinRule(false), isLeft(false)
+                name(argName), rule(argRule), prio(0), isBinRule(false), isLeft(false)
         {
         }
 
         SeqInfo(const char* argName, const char* argRule, int argPrio, bool argIsLeft = true) :
-            name(argName), rule(argRule), prio(argPrio), isBinRule(true), isLeft(argIsLeft)
+                name(argName), rule(argRule), prio(argPrio), isBinRule(true), isLeft(argIsLeft)
         {
         }
     };
@@ -591,7 +593,7 @@ public:
     void add7(const SeqInfo& rule, RV (ImplType::*method)(A1, A2, A3, A4, A5, A6, A7))
     {
         parseRule(rule, 7).handler = new RuleHandler7<ImplType, RV, A1, A2, A3, A4, A5, A6, A7>((ImplType*) this,
-                                                                                                method);
+                method);
     }
 
     bool getNext(const char*& rule, std::string& buf)
@@ -641,7 +643,8 @@ public:
         if(seq.isBinRule)
         {
             r.seqs.push_back(Sequence(seq.name, seq.prio, seq.isLeft));
-        } else
+        }
+        else
         {
             r.seqs.push_back(Sequence(seq.name));
         }
@@ -670,7 +673,8 @@ public:
             if(it == termMap.end())
             {
                 e = &s.add(RuleEntry(getRule(str)));
-            } else
+            }
+            else
             {
                 e = &s.add(RuleEntry(it->second));
             }
@@ -752,7 +756,8 @@ public:
                 {
                     r.startTerms[e.t] = static_cast<int>(idx);
                     DPRINT("%s is starting with %s\n", s.name.c_str(), Lexer::getTermName(e.t));
-                } else
+                }
+                else
                 {
                     int aidx = r.startTerms[e.t];
                     Sequence& as = r.seqs[static_cast<size_t>(aidx)];
@@ -776,7 +781,7 @@ public:
                             if(s.seq[i].t != as.seq[i].t)
                             {
                                 DPRINT("marked seq %s as compatible alt of %s at %d\n", s.name.c_str(), as.name.c_str(),
-                                       (int) i);
+                                        (int) i);
                                 s.compatibleAlt = static_cast<int>(i);
                                 break;
                             }
@@ -785,13 +790,14 @@ public:
                         if(s.seq[i].nt != as.seq[i].nt)
                         {
                             DPRINT("marked seq %s as compatible alt of %s at %d\n", s.name.c_str(), as.name.c_str(),
-                                   (int) i);
+                                    (int) i);
                             s.compatibleAlt = static_cast<int>(i);
                             break;
                         }
                     }
                 }
-            } else
+            }
+            else
             {
                 if(e.nt->id != r.id)
                 {
@@ -806,7 +812,8 @@ public:
                             if(r.startTerms[i] == -1)
                             {
                                 r.startTerms[i] = static_cast<int>(idx);
-                            } else
+                            }
+                            else
                             {
                                 int aidx = r.startTerms[i];
                                 Sequence& as = r.seqs[static_cast<size_t>(aidx)];
@@ -835,7 +842,7 @@ public:
                                         if(s.seq[j].t != as.seq[j].t)
                                         {
                                             DPRINT("marked seq %s as compatible alt of %s at %d\n", s.name.c_str(),
-                                                   as.name.c_str(), (int) j);
+                                                    as.name.c_str(), (int) j);
                                             s.compatibleAlt = static_cast<int>(j);
                                             break;
                                         }
@@ -844,7 +851,7 @@ public:
                                     if(s.seq[j].nt != as.seq[j].nt)
                                     {
                                         DPRINT("marked seq %s as compatible alt of %s at %d\n", s.name.c_str(),
-                                               as.name.c_str(), (int) j);
+                                                as.name.c_str(), (int) j);
                                         s.compatibleAlt = static_cast<int>(j);
                                         break;
                                     }
@@ -873,7 +880,8 @@ public:
             if(re.isTerm)
             {
                 DPRINT("t:%s\n", Lexer::getTermName(re.t));
-            } else
+            }
+            else
             {
                 DPRINT("nt:%s\n", re.nt->name.c_str());
             }
@@ -923,7 +931,8 @@ public:
             if(!last)
             {
                 last = data;
-            } else
+            }
+            else
             {
                 last++;
             }
@@ -1070,7 +1079,8 @@ public:
             if(lastFailMatch.pos.fileRd)
             {
                 throw SyntaxErrorException("syntax error", lastFailMatch.pos);
-            } else
+            }
+            else
             {
                 throw SyntaxErrorException("syntax error", t.pos);
             }
@@ -1089,7 +1099,7 @@ public:
                 if(r.emptySeq >= 0)
                 {
                     DPRINT("match failed, but there is empty rule:%s\n",
-                           r.seqs[static_cast<size_t>(r.emptySeq)].name.c_str());
+                            r.seqs[static_cast<size_t>(r.emptySeq)].name.c_str());
                     rollbackCall();
                     if(r.seqs[static_cast<size_t>(r.emptySeq)].handler)
                     {
@@ -1114,7 +1124,8 @@ public:
                 {
                     snprintf(msg, sizeof(msg), "%s unexpected", Lexer::getTermName(lastFailMatch));
                     throw SyntaxErrorException(msg, lastFailMatch.pos);
-                } else
+                }
+                else
                 {
                     snprintf(msg, sizeof(msg), "%s unexpected", Lexer::getTermName(t));
                     throw SyntaxErrorException(msg, t.pos);
@@ -1124,9 +1135,10 @@ public:
             if(r.seqs[static_cast<size_t>(cf.idx)].alt != -1)
             {
                 DPRINT("seq have alt %s\n",
-                       r.seqs[static_cast<size_t>(r.seqs[static_cast<size_t>(cf.idx)].alt)].name.c_str());
+                        r.seqs[static_cast<size_t>(r.seqs[static_cast<size_t>(cf.idx)].alt)].name.c_str());
             }
-        } else
+        }
+        else
         {
             Sequence& s = r.seqs[static_cast<size_t>(cf.idx)];
             //return from call, or advance on term rule
@@ -1137,7 +1149,7 @@ public:
                     if(s.alt != -1)
                     {
                         DPRINT("match of %s failed, switching to alt:%s\n", s.name.c_str(),
-                               r.seqs[static_cast<size_t>(s.alt)].name.c_str());
+                                r.seqs[static_cast<size_t>(s.alt)].name.c_str());
                         restartCall(s.alt);
                         return true;
                     }
@@ -1153,7 +1165,8 @@ public:
                         if(re.isTerm)
                         {
                             DPRINT("parsing failed, expected %s\n", Lexer::getTermName(re.t));
-                        } else
+                        }
+                        else
                         {
                             DPRINT("parsing failed, expected %s\n", re.nt->name.c_str());
                         }
@@ -1161,7 +1174,8 @@ public:
                     char msg[256];
                     snprintf(msg, sizeof(msg), "Parsing of %s failed", s.name.c_str());
                     throw SyntaxErrorException(msg, t.pos);
-                } else
+                }
+                else
                 {
                     DPRINT("list rule %s failed, returning\n", r.name.c_str());
                     if(r.listMode == lmZeroOrMoreTrail && r.emptySeq >= 0 && stack.last && !stack.last->re.isTerm &&
@@ -1172,7 +1186,8 @@ public:
                     if(r.listMode == lmOneOrMoreTrail || r.listMode == lmZeroOrMoreTrail)
                     {
                         callStack.pop_back();
-                    } else
+                    }
+                    else
                     {
                         rollbackCall();
                     }
@@ -1249,12 +1264,14 @@ public:
                         cf.idx = nidx;
                         cf.pos = 1;
                         return false;
-                    } else
+                    }
+                    else
                     {
                         DPRINT("old rule has higher prio\n");
                     }
                 }
-            } else if(r.listMode != lmNone)
+            }
+            else if(r.listMode != lmNone)
             {
                 DPRINT("checking list rule for recursion\n");
                 bool found = false;
@@ -1263,7 +1280,8 @@ public:
                     found = true;
                     cf.idx = r.binopSeq[t.tt];
                     cf.pos = 1;
-                } else
+                }
+                else
                 {
                     for(size_t idx = 0; idx < r.seqs.size(); ++idx)
                     {
@@ -1285,7 +1303,8 @@ public:
                                     found = true;
                                     break;
                                 }
-                            } else
+                            }
+                            else
                             {
                                 if(ss.seq[1].nt->getTermSeq(t) != -1)
                                 {
@@ -1336,7 +1355,8 @@ public:
                     cf.end = t.pos;
                 }
                 return true;
-            } else
+            }
+            else
             {
                 if(s.seq[static_cast<size_t>(cf.pos)].isOptional)
                 {
@@ -1350,12 +1370,13 @@ public:
                 if(s.alt != -1)
                 {
                     DPRINT("match of %s failed, switching to alt:%s\n", s.name.c_str(),
-                           r.seqs[static_cast<size_t>(s.alt)].name.c_str());
+                            r.seqs[static_cast<size_t>(s.alt)].name.c_str());
                     if(s.compatibleAlt == cf.pos)
                     {
                         DPRINT("alt is at compatible position, switching without frame restart\n");
                         cf.idx = s.alt;
-                    } else
+                    }
+                    else
                     {
                         restartCall(s.alt);
                     }
@@ -1384,13 +1405,14 @@ public:
                 }
                 return true;
             }
-        } else
+        }
+        else
         {
 
             int pos = cf.pos++;
             mkCall(s.seq[static_cast<size_t>(pos)].nt, s.seq[static_cast<size_t>(pos)].isPrioReset,
-                   cf.returnOnError || s.seq[static_cast<size_t>(pos)].isReturnOnError,
-                   false/*cf.pointOfNoReturn || s.seq[pos].isPointOfNoReturn*/);
+                    cf.returnOnError || s.seq[static_cast<size_t>(pos)].isReturnOnError,
+                    false/*cf.pointOfNoReturn || s.seq[pos].isPointOfNoReturn*/);
         }
         return false;
     }

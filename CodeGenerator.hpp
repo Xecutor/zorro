@@ -114,6 +114,11 @@ public:
             fixLast(*next);
         }
 
+        bool cannotBeFixed()const
+        {
+            return (skipNext || !last) && efixes.empty();
+        }
+
         void fixLast(OpBase* next)
         {
             if(!skipNext)

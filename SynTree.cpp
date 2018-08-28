@@ -322,7 +322,7 @@ bool Expr::isDeepConst() const
         case etMap:
             if(lst)
             {
-                for(auto* eptr:*lst)
+                for(auto& eptr:lst->values)
                 {
                     if(!eptr->isConst())
                     {

@@ -494,7 +494,6 @@ int main(int argc, char* argv[])
         ZMacroExpander mex;
         mex.init(&vm, &p);
         p.l.macroExpander = &mex;
-        FileReader fr(&freg);
         const char* fileName = "test.zs";
         bool debugMode = false;
         for(int i = 1; i < argc; ++i)
@@ -520,8 +519,8 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Failed to open file %s for reading:%s.\n", fileName, strerror(errno));
             return 1;
         }
-        fr.assignEntry(e);
-        p.pushReader(&fr);
+        auto* fr = freg.newReader(e);
+        p.pushReader(fr);
         p.parse();
         CodeGenerator cg(&vm);
         cg.generate(p.getResult());
@@ -557,6 +556,20 @@ int main(int argc, char* argv[])
                 if(cmd[0] == 's')
                 {
                     dbg.stepInto();
+                }
+                if(cmd[0] == 'p')
+                {
+                    Value res = NilValue;
+                    std::string err;
+                    if(dbg.eval(cmd + 1, res, err))
+                    {
+                        printf("%s\n", ValueToString(&vm, res).c_str());
+                        vm.assign(res, NilValue);
+                    }
+                    else
+                    {
+                        printf("Error: %s\n", err.c_str());
+                    }
                 }
                 if(cmd[0] == 'q')
                 {
