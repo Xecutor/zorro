@@ -159,6 +159,14 @@ class StmtList {
 public:
     std::list<std::unique_ptr<Statement>> values;
 
+    void forgetValues()
+    {
+        for(auto& it: values)
+        {
+            (void)it.release();
+        }
+    }
+
     void dump(std::string& out)
     {
         for(auto& it : values)
